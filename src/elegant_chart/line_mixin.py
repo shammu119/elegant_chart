@@ -81,13 +81,16 @@ class LineMixin(DataMixin):
                 ax.xaxis_date()
 
             # ── draw lines ────────────────────────────────────────────────
-            val_fmt = self._build_formatter(y_formatter if y_formatter is not None else self.y_formatter)  # type: ignore[attr-defined]
+            val_fmt = self._build_formatter(
+                y_formatter if y_formatter is not None else self.y_formatter
+            )  # type: ignore[attr-defined]
 
             for idx, (lbl, values) in enumerate(series_list):
                 color = self.palette[idx % len(self.palette)]  # type: ignore[attr-defined]
                 if markers:
                     ax.plot(
-                        x_positions, values,
+                        x_positions,
+                        values,
                         label=lbl,
                         color=color,
                         linewidth=effective_lw,
@@ -97,7 +100,8 @@ class LineMixin(DataMixin):
                     )
                 else:
                     ax.plot(
-                        x_positions, values,
+                        x_positions,
+                        values,
                         label=lbl,
                         color=color,
                         linewidth=effective_lw,
@@ -128,7 +132,9 @@ class LineMixin(DataMixin):
             )
 
             ax.tick_params(axis="y", which="both", length=0)
-            ax.tick_params(axis="x", which="major", pad=self._px(1.5), length=self._px(3), width=self._px(0.5))
+            ax.tick_params(
+                axis="x", which="major", pad=self._px(1.5), length=self._px(3), width=self._px(0.5)
+            )
             ax.margins(x=0)
 
             if active_xlim is None and not x_plan.is_datetime:
@@ -149,7 +155,8 @@ class LineMixin(DataMixin):
                     [str(x[i]) for i in visible_idx], enabled=compact_years
                 )
                 self._apply_tick_labels(  # type: ignore[attr-defined]
-                    ax, "x",
+                    ax,
+                    "x",
                     ticks=visible_idx,
                     labels=visible_lbls,
                     rotation=rotation,
@@ -174,7 +181,8 @@ class LineMixin(DataMixin):
                         x_plan.x_tick_labels_forced, enabled=compact_years
                     )
                     self._apply_tick_labels(  # type: ignore[attr-defined]
-                        ax, "x",
+                        ax,
+                        "x",
                         ticks=x_positions,
                         labels=tick_lbls,
                         rotation=rotation,
@@ -186,7 +194,8 @@ class LineMixin(DataMixin):
             # ── finalize + output ─────────────────────────────────────────
             has_legend = any(lbl for lbl, _ in series_list)
             self._finalize_and_output(
-                fig, ax,
+                fig,
+                ax,
                 rotation=rotation,
                 has_legend=has_legend,
                 save_path=save_path,

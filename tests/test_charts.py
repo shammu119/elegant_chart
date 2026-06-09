@@ -5,9 +5,11 @@ Headless smoke tests for ElegantChart.
 Uses the Agg (non-interactive) backend so tests run without a display.
 All chart calls use show=False so plt.show() is never triggered.
 """
+
 import os
 import pytest
 import matplotlib
+
 matplotlib.use("Agg")  # must be set before importing pyplot
 
 import matplotlib.pyplot as plt
@@ -19,6 +21,7 @@ from elegant_chart import ElegantChart
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 def make_chart(**kwargs) -> ElegantChart:
     return ElegantChart(**{"title": "Test", **kwargs})
@@ -36,8 +39,10 @@ THEMES = ["consulting_light", "newsroom_muted", "consulting_dark", "newsroom_dar
 
 # ── import / instantiation smoke ──────────────────────────────────────────────
 
+
 def test_import():
     from elegant_chart import ElegantChart, ChartBase, XPlan, YFormatter
+
     assert ElegantChart is not None
 
 
@@ -49,8 +54,9 @@ def test_instantiation_defaults():
     assert c._figure_scale == 1.0, "_figure_scale must be 1.0 at the reference figsize"
     assert c.font_scale == 0.8
     assert isinstance(c.palette, list)
-    assert all(isinstance(color, str) for color in c.palette), \
+    assert all(isinstance(color, str) for color in c.palette), (
         "All palette entries must be plain hex strings"
+    )
 
 
 def test_default_line_width_is_smaller():
@@ -65,11 +71,13 @@ def test_instantiation_all_themes():
     for theme in THEMES:
         c = ElegantChart(theme=theme)
         assert isinstance(c.palette, list), f"{theme}: palette must be a list"
-        assert all(isinstance(p, str) for p in c.palette), \
+        assert all(isinstance(p, str) for p in c.palette), (
             f"{theme}: palette must contain only strings, not tuples"
+        )
 
 
 # ── bar chart — x types ───────────────────────────────────────────────────────
+
 
 def test_bar_categorical():
     c = make_chart()
@@ -89,25 +97,30 @@ def test_bar_datetime():
 
 # ── bar chart — modes ─────────────────────────────────────────────────────────
 
+
 def test_bar_multi_grouped():
     c = make_chart()
-    assert_figure(c.bar(
-        x=["Q1", "Q2", "Q3"],
-        ys=[[10, 20, 15], [5, 12, 8]],
-        labels=["A", "B"],
-        show=False,
-    ))
+    assert_figure(
+        c.bar(
+            x=["Q1", "Q2", "Q3"],
+            ys=[[10, 20, 15], [5, 12, 8]],
+            labels=["A", "B"],
+            show=False,
+        )
+    )
 
 
 def test_bar_stacked():
     c = make_chart()
-    assert_figure(c.bar(
-        x=["Q1", "Q2", "Q3"],
-        ys=[[10, 20, 15], [5, 12, 8]],
-        labels=["A", "B"],
-        stacked=True,
-        show=False,
-    ))
+    assert_figure(
+        c.bar(
+            x=["Q1", "Q2", "Q3"],
+            ys=[[10, 20, 15], [5, 12, 8]],
+            labels=["A", "B"],
+            stacked=True,
+            show=False,
+        )
+    )
 
 
 def test_bar_dict_ys():
@@ -117,6 +130,7 @@ def test_bar_dict_ys():
 
 # ── bar chart — all themes ────────────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("theme", THEMES)
 def test_bar_all_themes(theme):
     c = make_chart(theme=theme)
@@ -124,6 +138,7 @@ def test_bar_all_themes(theme):
 
 
 # ── line chart — x types ──────────────────────────────────────────────────────
+
 
 def test_line_categorical():
     c = make_chart()
@@ -143,14 +158,17 @@ def test_line_datetime():
 
 # ── line chart — multi-series + markers ──────────────────────────────────────
 
+
 def test_line_multi_series():
     c = make_chart()
-    assert_figure(c.line(
-        x=["A", "B", "C", "D"],
-        ys=[[1, 2, 3, 4], [4, 3, 2, 1]],
-        labels=["Up", "Down"],
-        show=False,
-    ))
+    assert_figure(
+        c.line(
+            x=["A", "B", "C", "D"],
+            ys=[[1, 2, 3, 4], [4, 3, 2, 1]],
+            labels=["Up", "Down"],
+            show=False,
+        )
+    )
 
 
 def test_line_no_markers():
@@ -165,6 +183,7 @@ def test_line_all_themes(theme):
 
 
 # ── DataFrame path ────────────────────────────────────────────────────────────
+
 
 def test_bar_from_dataframe():
     df = pd.DataFrame({"month": ["Jan", "Feb", "Mar"], "sales": [100, 120, 90]})
@@ -235,6 +254,7 @@ def test_get_series_df_creates_excel_cache_on_api_fetch(tmp_path, monkeypatch):
 
 # ── save_path round-trip ──────────────────────────────────────────────────────
 
+
 def test_bar_save(tmp_path):
     out = tmp_path / "chart.png"
     c = make_chart()
@@ -251,12 +271,14 @@ def test_line_save(tmp_path):
 
 # ── configurable DPI ──────────────────────────────────────────────────────────
 
+
 def test_custom_dpi():
     c = ElegantChart(dpi=72)
     assert c._rc["figure.dpi"] == 72
 
 
 # ── figure scale proportionality ─────────────────────────────────────────────
+
 
 def test_figure_scale_proportional():
     """At 2× the reference figsize, _figure_scale == 2.0 and helpers scale accordingly."""
@@ -269,6 +291,7 @@ def test_figure_scale_proportional():
 
 
 # ── compact_years opt-in ──────────────────────────────────────────────────────
+
 
 def test_compact_years_disabled_preserves_integers():
     """Integer-like labels must not be mangled when compact_years=False (default)."""
@@ -290,17 +313,20 @@ def test_compact_years_disabled_preserves_integers():
 def test_compact_years_enabled():
     """When opted in, year-like labels are abbreviated after the first."""
     from elegant_chart.data_mixin import DataMixin
+
     result = DataMixin._compact_years(["2020", "2021", "2022"], enabled=True)
     assert result == ["2020", "21", "22"]
 
 
 def test_compact_years_disabled():
     from elegant_chart.data_mixin import DataMixin
+
     result = DataMixin._compact_years(["2020", "2021", "2022"], enabled=False)
     assert result == ["2020", "2021", "2022"]
 
 
 # ── error cases ───────────────────────────────────────────────────────────────
+
 
 def test_error_empty_x():
     c = make_chart()
@@ -335,9 +361,11 @@ def test_error_df_missing_cols():
 
 # ── font warning ─────────────────────────────────────────────────────────────
 
+
 def test_sf_pro_missing_emits_warning():
     """UserWarning must be raised when SF Pro is absent (true on any standard CI/dev box)."""
     from matplotlib import font_manager
+
     available = {f.name for f in font_manager.fontManager.ttflist}
     if "SF Pro" in available or "SF Pro Text" in available or "SF Pro Display" in available:
         pytest.skip("SF Pro is installed on this machine — fallback path not exercised")
@@ -347,6 +375,7 @@ def test_sf_pro_missing_emits_warning():
 
 
 # ── export_data ───────────────────────────────────────────────────────────────
+
 
 def test_export_data_bar(tmp_path):
     out = tmp_path / "export.xlsx"
@@ -397,6 +426,7 @@ def test_export_data_before_render_raises():
 
 # ── value labels (optional, off by default) ──────────────────────────────────
 
+
 def test_bar_value_labels_off_by_default():
     """show_value_labels=True must add more text objects than the default (off)."""
     c1 = make_chart()
@@ -424,7 +454,9 @@ def test_bar_value_labels_on():
 
 def test_line_value_labels_on():
     c = make_chart()
-    fig, ax = c.line(x=["Jan", "Feb", "Mar"], ys=[100, 200, 150], show_value_labels=True, show=False)
+    fig, ax = c.line(
+        x=["Jan", "Feb", "Mar"], ys=[100, 200, 150], show_value_labels=True, show=False
+    )
     label_texts = [t.get_text() for t in ax.texts]
     assert "100" in label_texts
     assert "200" in label_texts
@@ -434,13 +466,15 @@ def test_line_value_labels_on():
 
 # ── auto bar width ────────────────────────────────────────────────────────────
 
+
 def test_auto_bar_width_categorical_sparse():
     """Sparse categorical data should produce narrower bars than dense data."""
     from elegant_chart.data_mixin import DataMixin, XPlan
     import numpy as np
+
     dm = DataMixin()
     plan_sparse = XPlan(True, False, False, np.arange(3, dtype=float), False, None)
-    plan_dense  = XPlan(True, False, False, np.arange(20, dtype=float), False, None)
+    plan_dense = XPlan(True, False, False, np.arange(20, dtype=float), False, None)
     assert dm._auto_bar_width(plan_sparse, 3) < dm._auto_bar_width(plan_dense, 20)
 
 
@@ -448,6 +482,7 @@ def test_auto_bar_width_datetime_scales_with_gap():
     """Datetime positions: width should be proportional to the minimum gap."""
     from elegant_chart.data_mixin import DataMixin, XPlan
     import numpy as np
+
     dm = DataMixin()
     # Tight series: gap=1
     plan_tight = XPlan(False, True, False, np.array([0.0, 1.0, 2.0]), False, None)
@@ -467,20 +502,23 @@ def test_bar_explicit_width_respected():
 
 # ── economist y-tick labels inside plot ───────────────────────────────────────
 
+
 def test_economist_ytick_labels_are_inside_axes():
     """Y-tick labels must be rendered as ax.texts (inside), not as yticklabels."""
     c = make_chart()
     fig, ax = c.bar(x=["A", "B", "C"], ys=[1000, 2000, 3000], show=False)
     # Default yticklabels should be empty (labels hidden, drawn as ax.texts instead)
     visible_ytick_labels = [t.get_text() for t in ax.get_yticklabels() if t.get_visible()]
-    assert all(lbl == "" for lbl in visible_ytick_labels), \
+    assert all(lbl == "" for lbl in visible_ytick_labels), (
         "Default yticklabels should be hidden; labels go inside via ax.text()"
+    )
     # At least one inside text label should exist
     assert any(t.get_text() for t in ax.texts), "Expected economist-style inside tick labels"
     plt.close(fig)
 
 
 # ── palette shape (no tuples) ─────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("theme", THEMES)
 def test_palette_is_flat_strings(theme):
