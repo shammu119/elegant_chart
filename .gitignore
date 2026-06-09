@@ -7,3 +7,15 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+
+# Secrets & local data — never commit these
+TOKEN.txt
+data.xlsx
+*.xlsx
+
+# Personal notes
+suggestions.txt
+
+# Editor directories
+.idea/
+.vscode/

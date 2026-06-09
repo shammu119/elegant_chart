@@ -164,9 +164,6 @@ class FigureMixin:
             if ext:
                 fmt = ext
 
-        if "bbox_inches" in kwargs:
-            kwargs.pop("bbox_inches")
-
         fig.savefig(
             save_path,
             dpi=dpi,

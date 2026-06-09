@@ -1,0 +1,266 @@
+# tests/test_charts.py
+"""
+Headless smoke tests for ElegantChart.
+
+Uses the Agg (non-interactive) backend so tests run without a display.
+All chart calls use show=False so plt.show() is never triggered.
+"""
+import os
+import pytest
+import matplotlib
+matplotlib.use("Agg")  # must be set before importing pyplot
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from datetime import datetime
+
+from elegant_chart import ElegantChart
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def make_chart(**kwargs) -> ElegantChart:
+    return ElegantChart(**{"title": "Test", **kwargs})
+
+
+def assert_figure(result):
+    fig, ax = result
+    assert isinstance(fig, plt.Figure)
+    assert isinstance(ax, plt.Axes)
+    plt.close(fig)
+
+
+THEMES = ["consulting_light", "newsroom_muted", "consulting_dark", "newsroom_dark"]
+
+
+# ── import / instantiation smoke ──────────────────────────────────────────────
+
+def test_import():
+    from elegant_chart import ElegantChart, ChartBase, XPlan, YFormatter
+    assert ElegantChart is not None
+
+
+def test_instantiation_defaults():
+    c = ElegantChart()
+    assert c.theme == "consulting_light"
+    assert c.dpi == 150
+    assert isinstance(c.palette, list)
+    assert all(isinstance(color, str) for color in c.palette), \
+        "All palette entries must be plain hex strings"
+
+
+def test_instantiation_all_themes():
+    for theme in THEMES:
+        c = ElegantChart(theme=theme)
+        assert isinstance(c.palette, list), f"{theme}: palette must be a list"
+        assert all(isinstance(p, str) for p in c.palette), \
+            f"{theme}: palette must contain only strings, not tuples"
+
+
+# ── bar chart — x types ───────────────────────────────────────────────────────
+
+def test_bar_categorical():
+    c = make_chart()
+    assert_figure(c.bar(x=["A", "B", "C"], ys=[1, 2, 3], show=False))
+
+
+def test_bar_numeric():
+    c = make_chart()
+    assert_figure(c.bar(x=[1, 2, 3, 4], ys=[10, 20, 15, 25], show=False))
+
+
+def test_bar_datetime():
+    c = make_chart()
+    dates = [datetime(2020, 1, 1), datetime(2021, 1, 1), datetime(2022, 1, 1)]
+    assert_figure(c.bar(x=dates, ys=[100, 120, 110], show=False))
+
+
+# ── bar chart — modes ─────────────────────────────────────────────────────────
+
+def test_bar_multi_grouped():
+    c = make_chart()
+    assert_figure(c.bar(
+        x=["Q1", "Q2", "Q3"],
+        ys=[[10, 20, 15], [5, 12, 8]],
+        labels=["A", "B"],
+        show=False,
+    ))
+
+
+def test_bar_stacked():
+    c = make_chart()
+    assert_figure(c.bar(
+        x=["Q1", "Q2", "Q3"],
+        ys=[[10, 20, 15], [5, 12, 8]],
+        labels=["A", "B"],
+        stacked=True,
+        show=False,
+    ))
+
+
+def test_bar_dict_ys():
+    c = make_chart()
+    assert_figure(c.bar(x=["X", "Y", "Z"], ys={"Series": [1, 2, 3]}, show=False))
+
+
+# ── bar chart — all themes ────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("theme", THEMES)
+def test_bar_all_themes(theme):
+    c = make_chart(theme=theme)
+    assert_figure(c.bar(x=["A", "B", "C"], ys=[1, 2, 3], show=False))
+
+
+# ── line chart — x types ──────────────────────────────────────────────────────
+
+def test_line_categorical():
+    c = make_chart()
+    assert_figure(c.line(x=["Jan", "Feb", "Mar"], ys=[10, 12, 9], show=False))
+
+
+def test_line_numeric():
+    c = make_chart()
+    assert_figure(c.line(x=[0, 1, 2, 3], ys=[0, 1, 4, 9], show=False))
+
+
+def test_line_datetime():
+    c = make_chart()
+    dates = [datetime(2020, 1, 1), datetime(2021, 6, 1), datetime(2022, 12, 1)]
+    assert_figure(c.line(x=dates, ys=[5, 7, 6], show=False))
+
+
+# ── line chart — multi-series + markers ──────────────────────────────────────
+
+def test_line_multi_series():
+    c = make_chart()
+    assert_figure(c.line(
+        x=["A", "B", "C", "D"],
+        ys=[[1, 2, 3, 4], [4, 3, 2, 1]],
+        labels=["Up", "Down"],
+        show=False,
+    ))
+
+
+def test_line_no_markers():
+    c = make_chart()
+    assert_figure(c.line(x=[1, 2, 3], ys=[1, 4, 2], markers=False, show=False))
+
+
+@pytest.mark.parametrize("theme", THEMES)
+def test_line_all_themes(theme):
+    c = make_chart(theme=theme)
+    assert_figure(c.line(x=["A", "B", "C"], ys=[3, 1, 2], show=False))
+
+
+# ── DataFrame path ────────────────────────────────────────────────────────────
+
+def test_bar_from_dataframe():
+    df = pd.DataFrame({"month": ["Jan", "Feb", "Mar"], "sales": [100, 120, 90]})
+    c = make_chart()
+    assert_figure(c.bar(x=None, df=df, x_col="month", y_cols="sales", show=False))
+
+
+def test_line_from_dataframe():
+    df = pd.DataFrame({"x": [1, 2, 3, 4], "y1": [1, 4, 9, 16], "y2": [2, 3, 4, 5]})
+    c = make_chart()
+    assert_figure(c.line(x=None, df=df, x_col="x", y_cols=["y1", "y2"], show=False))
+
+
+# ── save_path round-trip ──────────────────────────────────────────────────────
+
+def test_bar_save(tmp_path):
+    out = tmp_path / "chart.png"
+    c = make_chart()
+    c.bar(x=["A", "B", "C"], ys=[1, 2, 3], show=False, save_path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+
+
+def test_line_save(tmp_path):
+    out = tmp_path / "line.png"
+    c = make_chart()
+    c.line(x=[1, 2, 3], ys=[1, 2, 1], show=False, save_path=str(out))
+    assert out.exists() and out.stat().st_size > 0
+
+
+# ── configurable DPI ──────────────────────────────────────────────────────────
+
+def test_custom_dpi():
+    c = ElegantChart(dpi=72)
+    assert c._rc["figure.dpi"] == 72
+
+
+# ── compact_years opt-in ──────────────────────────────────────────────────────
+
+def test_compact_years_disabled_preserves_integers():
+    """Integer-like labels must not be mangled when compact_years=False (default)."""
+    c = make_chart()
+    # If compact_years were always on, [1001, 1002, 1003] → ["1001", "2", "3"]
+    fig, ax = c.bar(
+        x=["1001", "1002", "1003"],
+        ys=[10, 20, 30],
+        compact_years=False,
+        show=False,
+    )
+    tick_labels = [t.get_text() for t in ax.get_xticklabels()]
+    assert "1001" in tick_labels
+    # Second label must NOT be "2"
+    assert "2" not in tick_labels
+    plt.close(fig)
+
+
+def test_compact_years_enabled():
+    """When opted in, year-like labels are abbreviated after the first."""
+    from elegant_chart.data_mixin import DataMixin
+    result = DataMixin._compact_years(["2020", "2021", "2022"], enabled=True)
+    assert result == ["2020", "21", "22"]
+
+
+def test_compact_years_disabled():
+    from elegant_chart.data_mixin import DataMixin
+    result = DataMixin._compact_years(["2020", "2021", "2022"], enabled=False)
+    assert result == ["2020", "2021", "2022"]
+
+
+# ── error cases ───────────────────────────────────────────────────────────────
+
+def test_error_empty_x():
+    c = make_chart()
+    with pytest.raises(ValueError, match="empty"):
+        c.bar(x=[], ys=[], show=False)
+
+
+def test_error_length_mismatch():
+    c = make_chart()
+    with pytest.raises(ValueError, match="length"):
+        c.bar(x=["A", "B", "C"], ys=[1, 2], show=False)
+
+
+def test_error_non_finite():
+    c = make_chart()
+    with pytest.raises(ValueError, match="non-finite"):
+        c.bar(x=["A", "B"], ys=[1, float("nan")], show=False)
+
+
+def test_error_no_ys():
+    c = make_chart()
+    with pytest.raises(ValueError):
+        c.bar(x=["A", "B"], show=False)
+
+
+def test_error_df_missing_cols():
+    df = pd.DataFrame({"x": [1, 2], "y": [3, 4]})
+    c = make_chart()
+    with pytest.raises(ValueError):
+        c.bar(x=None, df=df, show=False)
+
+
+# ── palette shape (no tuples) ─────────────────────────────────────────────────
+
+@pytest.mark.parametrize("theme", THEMES)
+def test_palette_is_flat_strings(theme):
+    c = ElegantChart(theme=theme)
+    for entry in c.palette:
+        assert isinstance(entry, str), (
+            f"Theme '{theme}' palette contains a non-string entry: {entry!r}"
+        )
