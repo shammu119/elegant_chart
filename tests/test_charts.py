@@ -64,7 +64,7 @@ def test_default_line_style_is_compact():
     fig, ax = c.line(x=[1, 2, 3], ys=[1, 2, 3], show=False)
     line = ax.lines[0]
     assert line.get_linewidth() == pytest.approx(0.6)
-    assert line.get_marker() == 'None'
+    assert line.get_marker() == "None"
     plt.close(fig)
 
 
