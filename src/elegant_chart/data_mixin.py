@@ -258,6 +258,34 @@ class DataMixin:
 
         return 1
 
+    # ── bar width auto-sizing ─────────────────────────────────────────────
+
+    def _auto_bar_width(self, x_plan: "XPlan", n: int) -> float:
+        """Return a bar width appropriate for the x-axis type and data density.
+
+        For categorical axes (positions are integers 0..n-1, spacing=1.0) the width
+        scales up slightly with bar count so denser charts use the available space.
+        For numeric/datetime axes the width is 80 % of the minimum inter-bar gap,
+        which naturally adapts to irregular spacing and very tight datetime series.
+        """
+        if x_plan.is_categorical:
+            if n <= 4:
+                return 0.50
+            if n <= 8:
+                return 0.60
+            if n <= 15:
+                return 0.72
+            return 0.82
+        # Numeric or datetime — use 80 % of smallest gap between consecutive points
+        positions = x_plan.positions
+        if len(positions) < 2:
+            return 0.7
+        gaps = np.diff(positions)
+        positive_gaps = gaps[gaps > 0]
+        if positive_gaps.size == 0:
+            return 0.7
+        return float(positive_gaps.min()) * 0.8
+
     # ── last-render cache ─────────────────────────────────────────────────
 
     def _store_series(

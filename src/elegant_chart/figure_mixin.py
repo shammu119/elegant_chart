@@ -94,9 +94,12 @@ class FigureMixin:
         if has_legend:
             ax.legend(frameon=False, fontsize=self._fs(11))
 
+        # Draw Economist-style inside tick labels after all axis/data setup is complete.
+        self._draw_economist_ytick_labels(ax)  # type: ignore[attr-defined]
+
         plt.subplots_adjust(
-            left=0.05,
-            right=0.87,
+            left=0.02,   # no external y-axis — reclaim left margin
+            right=0.98,  # reclaim right margin too
             top=0.82,
             bottom=0.24,
         )

@@ -317,6 +317,91 @@ def test_export_data_before_render_raises():
         c.export_data("should_not_exist.xlsx")
 
 
+# ── value labels (optional, off by default) ──────────────────────────────────
+
+def test_bar_value_labels_off_by_default():
+    """show_value_labels=True must add more text objects than the default (off)."""
+    c1 = make_chart()
+    _, ax1 = c1.bar(x=["A", "B", "C"], ys=[10, 20, 30], show=False)
+    texts_off = len(ax1.texts)
+    plt.close()
+
+    c2 = make_chart()
+    _, ax2 = c2.bar(x=["A", "B", "C"], ys=[10, 20, 30], show_value_labels=True, show=False)
+    texts_on = len(ax2.texts)
+    plt.close()
+
+    assert texts_on > texts_off, "show_value_labels=True must add value-label text objects"
+
+
+def test_bar_value_labels_on():
+    c = make_chart()
+    fig, ax = c.bar(x=["A", "B", "C"], ys=[10, 20, 30], show_value_labels=True, show=False)
+    label_texts = [t.get_text() for t in ax.texts]
+    assert "10" in label_texts
+    assert "20" in label_texts
+    assert "30" in label_texts
+    plt.close(fig)
+
+
+def test_line_value_labels_on():
+    c = make_chart()
+    fig, ax = c.line(x=["Jan", "Feb", "Mar"], ys=[100, 200, 150], show_value_labels=True, show=False)
+    label_texts = [t.get_text() for t in ax.texts]
+    assert "100" in label_texts
+    assert "200" in label_texts
+    assert "150" in label_texts
+    plt.close(fig)
+
+
+# ── auto bar width ────────────────────────────────────────────────────────────
+
+def test_auto_bar_width_categorical_sparse():
+    """Sparse categorical data should produce narrower bars than dense data."""
+    from elegant_chart.data_mixin import DataMixin, XPlan
+    import numpy as np
+    dm = DataMixin()
+    plan_sparse = XPlan(True, False, False, np.arange(3, dtype=float), False, None)
+    plan_dense  = XPlan(True, False, False, np.arange(20, dtype=float), False, None)
+    assert dm._auto_bar_width(plan_sparse, 3) < dm._auto_bar_width(plan_dense, 20)
+
+
+def test_auto_bar_width_datetime_scales_with_gap():
+    """Datetime positions: width should be proportional to the minimum gap."""
+    from elegant_chart.data_mixin import DataMixin, XPlan
+    import numpy as np
+    dm = DataMixin()
+    # Tight series: gap=1
+    plan_tight = XPlan(False, True, False, np.array([0.0, 1.0, 2.0]), False, None)
+    # Sparse series: gap=365
+    plan_loose = XPlan(False, True, False, np.array([0.0, 365.0, 730.0]), False, None)
+    assert dm._auto_bar_width(plan_loose, 3) > dm._auto_bar_width(plan_tight, 3)
+
+
+def test_bar_explicit_width_respected():
+    """An explicit bar_width= overrides auto-sizing."""
+    c = make_chart()
+    fig, ax = c.bar(x=["A", "B"], ys=[1, 2], bar_width=0.3, show=False)
+    rects = [p for p in ax.patches]
+    assert all(abs(p.get_width() - 0.3) < 0.01 for p in rects), "Explicit width should be used"
+    plt.close(fig)
+
+
+# ── economist y-tick labels inside plot ───────────────────────────────────────
+
+def test_economist_ytick_labels_are_inside_axes():
+    """Y-tick labels must be rendered as ax.texts (inside), not as yticklabels."""
+    c = make_chart()
+    fig, ax = c.bar(x=["A", "B", "C"], ys=[1000, 2000, 3000], show=False)
+    # Default yticklabels should be empty (labels hidden, drawn as ax.texts instead)
+    visible_ytick_labels = [t.get_text() for t in ax.get_yticklabels() if t.get_visible()]
+    assert all(lbl == "" for lbl in visible_ytick_labels), \
+        "Default yticklabels should be hidden; labels go inside via ax.text()"
+    # At least one inside text label should exist
+    assert any(t.get_text() for t in ax.texts), "Expected economist-style inside tick labels"
+    plt.close(fig)
+
+
 # ── palette shape (no tuples) ─────────────────────────────────────────────────
 
 @pytest.mark.parametrize("theme", THEMES)

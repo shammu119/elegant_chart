@@ -24,6 +24,7 @@ class LineMixin(DataMixin):
         rotation: float = 0,
         markers: bool = True,
         linewidth: float = 1.0,
+        show_value_labels: bool = False,
         compact_years: bool = False,
         x_tick_step: Optional[int] = None,
         max_x_ticks: Optional[int] = None,
@@ -77,6 +78,8 @@ class LineMixin(DataMixin):
                 ax.xaxis_date()
 
             # ── draw lines ────────────────────────────────────────────────
+            val_fmt = self._build_formatter(y_formatter if y_formatter is not None else self.y_formatter)  # type: ignore[attr-defined]
+
             for idx, (lbl, values) in enumerate(series_list):
                 color = self.palette[idx % len(self.palette)]  # type: ignore[attr-defined]
                 if markers:
@@ -97,6 +100,20 @@ class LineMixin(DataMixin):
                         linewidth=linewidth,
                         zorder=2,
                     )
+
+                if show_value_labels:
+                    for xp, v in zip(x_positions, values):
+                        ax.annotate(
+                            val_fmt(float(v), 0),
+                            xy=(float(xp), float(v)),
+                            xytext=(0, 5),
+                            textcoords="offset points",
+                            ha="center",
+                            va="bottom",
+                            fontsize=self._fs(8),  # type: ignore[attr-defined]
+                            color=self.color_text_main,  # type: ignore[attr-defined]
+                            zorder=6,
+                        )
 
             # ── axis limits ───────────────────────────────────────────────
             self._apply_axis_limits(ax, xlim, ylim)  # type: ignore[attr-defined]

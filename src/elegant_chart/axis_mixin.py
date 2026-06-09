@@ -142,10 +142,8 @@ class AxisMixin:
 
         ax.yaxis.set_major_formatter(self._build_formatter(y_formatter))
 
-        ax.yaxis.tick_right()
-        ax.yaxis.set_label_position("right")
-        ax.spines["right"].set_position(("outward", 0))
-        ax.spines["left"].set_visible(False)
+        # Tick labels are drawn inside the plot by _draw_economist_ytick_labels; hide defaults.
+        ax.tick_params(axis="y", which="both", length=0, labelleft=False, labelright=False)
 
         if y_tick_step is not None:
             ymin, ymax = ax.get_ylim()
@@ -159,6 +157,42 @@ class AxisMixin:
             ax.set_yticks(ticks)
         elif max_y_ticks is not None:
             ax.locator_params(axis="y", nbins=max_y_ticks)
+
+    def _draw_economist_ytick_labels(
+        self,
+        ax: plt.Axes,
+        secondary: bool = False,
+    ) -> None:
+        """Render y-axis tick labels floating inside the chart area (Economist style).
+
+        Works for both the primary (left) and secondary (right, secondary=True) y-axis so
+        that a twinx() secondary axis receives the same inside-label treatment.
+        """
+        formatter = ax.yaxis.get_major_formatter()
+        locator = ax.yaxis.get_major_locator()
+        ymin, ymax = ax.get_ylim()
+        ticks = locator.tick_values(ymin, ymax)
+
+        # x is in axes fraction (0=left edge, 1=right edge); y is in data coordinates.
+        x_pos = 0.99 if secondary else 0.01
+        h_align = "right" if secondary else "left"
+        transform = ax.get_yaxis_transform()
+
+        for tick_val in ticks:
+            if ymin <= tick_val <= ymax:
+                label_str = formatter(tick_val, 0)
+                ax.text(
+                    x_pos,
+                    tick_val,
+                    label_str,
+                    transform=transform,
+                    ha=h_align,
+                    va="bottom",
+                    fontsize=self._fs(10),  # type: ignore[attr-defined]
+                    color=self.color_tick,  # type: ignore[attr-defined]
+                    zorder=5,
+                    clip_on=False,
+                )
 
     def _apply_numeric_x_axis(
         self,

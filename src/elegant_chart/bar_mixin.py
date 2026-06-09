@@ -23,7 +23,8 @@ class BarMixin(DataMixin):
         y_cols: Optional[Union[str, Sequence[str]]] = None,
         rotation: float = 0,
         stacked: bool = False,
-        bar_width: float = 0.7,
+        bar_width: Optional[float] = None,
+        show_value_labels: bool = False,
         compact_years: bool = False,
         x_tick_step: Optional[int] = None,
         max_x_ticks: Optional[int] = None,
@@ -68,6 +69,7 @@ class BarMixin(DataMixin):
 
         active_xlim = xlim if xlim is not None else self.xlim  # type: ignore[attr-defined]
         x_plan = self._resolve_x_plan(x, active_xlim)
+        effective_bar_width = bar_width if bar_width is not None else self._auto_bar_width(x_plan, len(x))
 
         with rc_context(self._rc):  # type: ignore[attr-defined]
             fig, ax = self._init_figure_and_axes()  # type: ignore[attr-defined]
@@ -80,6 +82,7 @@ class BarMixin(DataMixin):
 
             # ── draw bars ─────────────────────────────────────────────────
             n_series = len(series_list)
+            val_fmt = self._build_formatter(y_formatter if y_formatter is not None else self.y_formatter)  # type: ignore[attr-defined]
 
             if stacked or n_series == 1:
                 cumulative = np.zeros(len(base_positions))
@@ -89,19 +92,29 @@ class BarMixin(DataMixin):
                         base_positions,
                         values,
                         bottom=cumulative if stacked else None,
-                        width=bar_width,
+                        width=effective_bar_width,
                         label=lbl,
                         color=color,
                         zorder=2,
                         align="center",
                     )
+                    if show_value_labels:
+                        for pos, v, cum in zip(base_positions, values, cumulative):
+                            bar_top = float(v) + float(cum) if stacked else float(v)
+                            ax.text(
+                                float(pos), bar_top, val_fmt(float(v), 0),
+                                ha="center", va="bottom",
+                                fontsize=self._fs(8),  # type: ignore[attr-defined]
+                                color=self.color_text_main,  # type: ignore[attr-defined]
+                                zorder=6,
+                            )
                     if stacked:
                         cumulative += np.array(values, dtype=float)
 
             else:
                 # grouped bars
-                single_width = bar_width / n_series
-                offset_start = -bar_width / 2 + single_width / 2
+                single_width = effective_bar_width / n_series
+                offset_start = -effective_bar_width / 2 + single_width / 2
 
                 for idx, (lbl, values) in enumerate(series_list):
                     offset = offset_start + idx * single_width
@@ -115,6 +128,15 @@ class BarMixin(DataMixin):
                         zorder=2,
                         align="center",
                     )
+                    if show_value_labels:
+                        for pos, v in zip(base_positions, values):
+                            ax.text(
+                                float(pos) + offset, float(v), val_fmt(float(v), 0),
+                                ha="center", va="bottom",
+                                fontsize=self._fs(8),  # type: ignore[attr-defined]
+                                color=self.color_text_main,  # type: ignore[attr-defined]
+                                zorder=6,
+                            )
 
             # ── axis limits ───────────────────────────────────────────────
             self._apply_axis_limits(ax, xlim, ylim)  # type: ignore[attr-defined]
