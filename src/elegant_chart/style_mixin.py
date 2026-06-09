@@ -8,8 +8,8 @@ from matplotlib import font_manager
 
 class StyleMixin:
     def _fs(self, base: float) -> float:
-        """Font size in points, scaled by both font_scale and figure size."""
-        return base * self.font_scale * self._figure_scale  # type: ignore[attr-defined]
+        """Font size in points, scaled by font_scale and capped at the reference figure size."""
+        return base * self.font_scale * min(self._figure_scale, 1.0)  # type: ignore[attr-defined]
 
     def _px(self, base: float) -> float:
         """Geometric point value (linewidth, markersize, pad …) scaled by figure size only."""
@@ -113,10 +113,10 @@ class StyleMixin:
             {
                 "figure.dpi": dpi,
                 "font.family": self.font_main_family,
-                "axes.titlesize": self._fs(16),
-                "axes.labelsize": self._fs(10),
-                "xtick.labelsize": self._fs(10),
-                "ytick.labelsize": self._fs(10),
+                "axes.titlesize": self._fs(7),
+                "axes.labelsize": self._fs(4),
+                "xtick.labelsize": self._fs(3),
+                "ytick.labelsize": self._fs(3),
                 "axes.edgecolor": self.color_axes_edge,
                 "axes.labelcolor": self.color_axes_label,
                 "text.color": self.color_text_main,

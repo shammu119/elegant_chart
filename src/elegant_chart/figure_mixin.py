@@ -53,27 +53,29 @@ class FigureMixin:
         if self.title and self.subtitle:
             ax.text(
                 0.0,
-                1.12,
+                1.06,
                 self.title,
                 transform=ax.transAxes,
-                fontsize=self._fs(16),
+                fontsize=self._fs(7),
                 va="bottom",
                 ha="left",
                 wrap=True,
                 color=self.color_title,
                 fontfamily=self.font_title_family,
                 fontweight=self.font_title_weight,
+                clip_on=False,
             )
             ax.text(
                 0.0,
-                1.085,
+                1.025,
                 self.subtitle,
                 transform=ax.transAxes,
-                fontsize=self._fs(10),
+                fontsize=self._fs(4),
                 wrap=True,
                 va="top",
                 ha="left",
                 color=self.color_subtitle,
+                clip_on=False,
             )
         elif self.title:
             ax.set_title(
@@ -82,17 +84,25 @@ class FigureMixin:
                 pad=0,
                 fontfamily=self.font_title_family,
                 fontweight=self.font_title_weight,
-                fontsize=self._fs(16),
+                fontsize=self._fs(7),
                 color=self.color_title,
             )
 
         if self.xlabel:
-            ax.set_xlabel(self.xlabel, color=self.color_axes_label)
+            ax.set_xlabel(self.xlabel, color=self.color_axes_label, fontsize=self._fs(5))
         if self.ylabel:
-            ax.set_ylabel(self.ylabel, color=self.color_axes_label)
+            ax.set_ylabel(self.ylabel, color=self.color_axes_label, fontsize=self._fs(5))
 
         if has_legend:
-            ax.legend(frameon=False, fontsize=self._fs(11))
+            ax.legend(
+                loc="upper right",
+                bbox_to_anchor=(1.0, 1.0),
+                frameon=False,
+                fontsize=self._fs(4),
+                handletextpad=self._px(0.4),
+                labelspacing=0.15,
+                borderaxespad=0.2,
+            )
 
         # Draw Economist-style inside tick labels after all axis/data setup is complete.
         self._draw_economist_ytick_labels(ax)  # type: ignore[attr-defined]
@@ -100,8 +110,8 @@ class FigureMixin:
         plt.subplots_adjust(
             left=0.02,   # no external y-axis — reclaim left margin
             right=0.98,  # reclaim right margin too
-            top=0.82,
-            bottom=0.24,
+            top=0.80,
+            bottom=0.16,
         )
 
     def _add_footer(self, fig: plt.Figure) -> None:
@@ -120,7 +130,7 @@ class FigureMixin:
                 self.caption,
                 ha="left",
                 va="top",
-                fontsize=self._fs(9),
+                fontsize=self._fs(8),
                 color=self.color_caption,
                 fontfamily=self.font_caption_family,
                 fontweight=self.font_caption_weight,

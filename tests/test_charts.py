@@ -285,8 +285,8 @@ def test_figure_scale_proportional():
     """At 2× the reference figsize, _figure_scale == 2.0 and helpers scale accordingly."""
     c = ElegantChart(figsize=(4.32, 5.4))  # exactly 2× (2.16, 2.7)
     assert c._figure_scale == 2.0
-    # _fs multiplies base × font_scale × _figure_scale
-    assert c._fs(10) == 10 * c.font_scale * 2.0
+    # _fs multiplies base × font_scale and caps figure enlargement at 1.0.
+    assert c._fs(10) == pytest.approx(10 * c.font_scale * min(c._figure_scale, 1.0))
     # _px multiplies base × _figure_scale only
     assert c._px(1.0) == 2.0
 
