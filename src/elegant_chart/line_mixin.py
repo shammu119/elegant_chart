@@ -15,7 +15,7 @@ from .data_mixin import DataMixin
 class LineMixin(DataMixin):
     def line(
         self,
-        x: Sequence[Any],
+        x: Optional[Sequence[Any]] = None,
         ys: Optional[Union[Sequence[Any], Dict[str, Sequence[Any]]]] = None,
         labels: Optional[Sequence[Optional[str]]] = None,
         df: Optional[pd.DataFrame] = None,
@@ -51,6 +51,8 @@ class LineMixin(DataMixin):
                 raise ValueError("If df is provided, x_col and y_cols must be set")
             x, ys, labels = self._from_dataframe(df, x_col, y_cols)
 
+        if x is None:
+            raise ValueError("x must be provided (or use df + x_col + y_cols)")
         if ys is None:
             raise ValueError("ys must be provided (or use df + x_col + y_cols)")
 

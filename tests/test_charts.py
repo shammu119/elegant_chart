@@ -158,13 +158,13 @@ def test_line_all_themes(theme):
 def test_bar_from_dataframe():
     df = pd.DataFrame({"month": ["Jan", "Feb", "Mar"], "sales": [100, 120, 90]})
     c = make_chart()
-    assert_figure(c.bar(x=None, df=df, x_col="month", y_cols="sales", show=False))
+    assert_figure(c.bar(df=df, x_col="month", y_cols="sales", show=False))
 
 
 def test_line_from_dataframe():
     df = pd.DataFrame({"x": [1, 2, 3, 4], "y1": [1, 4, 9, 16], "y2": [2, 3, 4, 5]})
     c = make_chart()
-    assert_figure(c.line(x=None, df=df, x_col="x", y_cols=["y1", "y2"], show=False))
+    assert_figure(c.line(df=df, x_col="x", y_cols=["y1", "y2"], show=False))
 
 
 # ── save_path round-trip ──────────────────────────────────────────────────────

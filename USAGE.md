@@ -658,7 +658,7 @@ chart = ElegantChart(
 chart.line(
     df=df,
     x_col="date",
-    y_cols="value",
+    y_cols="amount",
     show=True,
     save_path="series_2307.png",
 )
