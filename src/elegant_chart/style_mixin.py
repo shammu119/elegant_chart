@@ -1,6 +1,8 @@
 # elegant_chart/style_mixin.py
 from __future__ import annotations
 
+import warnings
+
 from matplotlib import font_manager
 
 
@@ -26,10 +28,22 @@ class StyleMixin:
         """Set font families, falling back to the system sans-serif if SF Pro is absent."""
         available = {f.name for f in font_manager.fontManager.ttflist}
 
-        self.font_main_family = "SF Pro" if "SF Pro" in available else "sans-serif"  # type: ignore[attr-defined]
-        self.font_title_family = "SF Pro Text" if "SF Pro Text" in available else "sans-serif"  # type: ignore[attr-defined]
+        has_sf_pro = "SF Pro" in available
+        has_sf_text = "SF Pro Text" in available
+        has_sf_display = "SF Pro Display" in available
+
+        if not (has_sf_pro or has_sf_text or has_sf_display):
+            warnings.warn(
+                "SF Pro fonts not found — falling back to system sans-serif. "
+                "Place SF Pro .ttf/.otf files in a fonts/ directory to use them.",
+                UserWarning,
+                stacklevel=3,
+            )
+
+        self.font_main_family = "SF Pro" if has_sf_pro else "sans-serif"  # type: ignore[attr-defined]
+        self.font_title_family = "SF Pro Text" if has_sf_text else "sans-serif"  # type: ignore[attr-defined]
         self.font_title_weight = "bold"  # type: ignore[attr-defined]
-        self.font_caption_family = "SF Pro Display" if "SF Pro Display" in available else "sans-serif"  # type: ignore[attr-defined]
+        self.font_caption_family = "SF Pro Display" if has_sf_display else "sans-serif"  # type: ignore[attr-defined]
         self.font_caption_weight = "light"  # type: ignore[attr-defined]
 
     def _apply_base_style(self) -> None:

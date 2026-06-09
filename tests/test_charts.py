@@ -255,6 +255,68 @@ def test_error_df_missing_cols():
         c.bar(x=None, df=df, show=False)
 
 
+# ── font warning ─────────────────────────────────────────────────────────────
+
+def test_sf_pro_missing_emits_warning():
+    """UserWarning must be raised when SF Pro is absent (true on any standard CI/dev box)."""
+    from matplotlib import font_manager
+    available = {f.name for f in font_manager.fontManager.ttflist}
+    if "SF Pro" in available or "SF Pro Text" in available or "SF Pro Display" in available:
+        pytest.skip("SF Pro is installed on this machine — fallback path not exercised")
+
+    with pytest.warns(UserWarning, match="SF Pro fonts not found"):
+        ElegantChart()
+
+
+# ── export_data ───────────────────────────────────────────────────────────────
+
+def test_export_data_bar(tmp_path):
+    out = tmp_path / "export.xlsx"
+    c = make_chart()
+    c.bar(x=["A", "B", "C"], ys=[1, 2, 3], show=False)
+    c.export_data(str(out))
+
+    assert out.exists() and out.stat().st_size > 0
+    df = pd.read_excel(out)
+    assert list(df.columns) == ["x", "value"]
+    assert list(df["x"]) == ["A", "B", "C"]
+    assert list(df["value"]) == [1, 2, 3]
+
+
+def test_export_data_line_multi_series(tmp_path):
+    out = tmp_path / "export.xlsx"
+    c = make_chart()
+    c.line(
+        x=["Jan", "Feb", "Mar"],
+        ys=[[10, 20, 30], [5, 15, 25]],
+        labels=["Revenue", "Cost"],
+        show=False,
+    )
+    c.export_data(str(out))
+
+    df = pd.read_excel(out)
+    assert set(df.columns) == {"x", "Revenue", "Cost"}
+    assert list(df["Revenue"]) == [10, 20, 30]
+    assert list(df["Cost"]) == [5, 15, 25]
+
+
+def test_export_data_overwrites_on_second_render(tmp_path):
+    out = tmp_path / "export.xlsx"
+    c = make_chart()
+    c.bar(x=["A"], ys=[1], show=False)
+    c.line(x=["X", "Y"], ys=[9, 8], show=False)  # second render
+    c.export_data(str(out))
+
+    df = pd.read_excel(out)
+    assert list(df["x"]) == ["X", "Y"], "export_data should reflect the most recent render"
+
+
+def test_export_data_before_render_raises():
+    c = make_chart()
+    with pytest.raises(RuntimeError, match="Call bar\\(\\) or line\\(\\)"):
+        c.export_data("should_not_exist.xlsx")
+
+
 # ── palette shape (no tuples) ─────────────────────────────────────────────────
 
 @pytest.mark.parametrize("theme", THEMES)

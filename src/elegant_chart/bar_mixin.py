@@ -62,6 +62,7 @@ class BarMixin(DataMixin):
         self._validate_series_lengths(x, series_list)
         self._validate_values(series_list)
         self._compute_max_y_value(series_list)
+        self._store_series(x, series_list)
 
         active_xlim = xlim if xlim is not None else self.xlim  # type: ignore[attr-defined]
         x_plan = self._resolve_x_plan(x, active_xlim)

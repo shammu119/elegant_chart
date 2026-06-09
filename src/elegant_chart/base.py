@@ -35,6 +35,10 @@ Internal (set once by _apply_base_style)
 Norm-max formatter scratch
     _max_y_value                 — float | None
     _norm_max_decimals           — int
+
+Last-render cache (written by bar/line, read by export_data)
+    _last_x                      — list | None
+    _last_series_list            — list[tuple[str|None, list[float]]] | None
 """
 
 from __future__ import annotations
@@ -102,6 +106,10 @@ class ChartBase:
         self._max_y_value: Optional[float] = None
         self._norm_max_decimals: int = 0
         self._rc: dict = {}
+
+        # ── last-render cache (populated by bar/line, read by export_data) ─
+        self._last_x: Optional[list] = None
+        self._last_series_list: Optional[list] = None
 
         # Populate palette, colors, fonts, and rc overlay
         self._apply_base_style()  # type: ignore[attr-defined]  # provided by StyleMixin

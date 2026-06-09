@@ -258,6 +258,65 @@ class DataMixin:
 
         return 1
 
+    # ── last-render cache ─────────────────────────────────────────────────
+
+    def _store_series(
+        self,
+        x: Sequence[Any],
+        series_list: List[Tuple[Optional[str], List[float]]],
+    ) -> None:
+        """Cache the most recent render's data so export_data() can access it."""
+        self._last_x = list(x)  # type: ignore[attr-defined]
+        self._last_series_list = list(series_list)  # type: ignore[attr-defined]
+
+    def export_data(self, path: str) -> None:
+        """
+        Export the data from the most recent ``bar()`` or ``line()`` call to an
+        Excel file (``.xlsx``).
+
+        Parameters
+        ----------
+        path:
+            Destination file path, e.g. ``"output/chart_data.xlsx"``.
+
+        Raises
+        ------
+        RuntimeError
+            If called before any chart has been rendered on this instance.
+        ImportError
+            If ``openpyxl`` is not installed.
+
+        Example
+        -------
+        ::
+
+            chart = ElegantChart(title="Revenue")
+            chart.bar(x=["Q1", "Q2", "Q3"], ys=[10, 20, 15], show=False)
+            chart.export_data("revenue.xlsx")
+        """
+        if self._last_x is None or self._last_series_list is None:  # type: ignore[attr-defined]
+            raise RuntimeError(
+                "No chart data to export. Call bar() or line() first."
+            )
+
+        try:
+            import openpyxl  # noqa: F401, PLC0415
+        except ImportError as exc:
+            raise ImportError(
+                "openpyxl is required for Excel export. "
+                "Install it with: pip install openpyxl"
+            ) from exc
+
+        data: dict = {"x": self._last_x}  # type: ignore[attr-defined]
+        for lbl, vals in self._last_series_list:  # type: ignore[attr-defined]
+            col = lbl if lbl else "value"
+            # Avoid duplicate column names when multiple unlabelled series exist
+            if col in data:
+                col = f"{col}_{list(data.keys()).count(col)}"
+            data[col] = vals
+
+        pd.DataFrame(data).to_excel(path, index=False)
+
     # ── shared finalisation ───────────────────────────────────────────────
 
     def _finalize_and_output(
