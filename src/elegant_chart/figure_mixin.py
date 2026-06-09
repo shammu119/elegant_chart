@@ -56,7 +56,7 @@ class FigureMixin:
                 1.12,
                 self.title,
                 transform=ax.transAxes,
-                fontsize=self._fs(20),
+                fontsize=self._fs(16),
                 va="bottom",
                 ha="left",
                 wrap=True,
@@ -69,7 +69,7 @@ class FigureMixin:
                 1.085,
                 self.subtitle,
                 transform=ax.transAxes,
-                fontsize=self._fs(12),
+                fontsize=self._fs(10),
                 wrap=True,
                 va="top",
                 ha="left",
@@ -82,7 +82,7 @@ class FigureMixin:
                 pad=0,
                 fontfamily=self.font_title_family,
                 fontweight=self.font_title_weight,
-                fontsize=self._fs(20),
+                fontsize=self._fs(16),
                 color=self.color_title,
             )
 

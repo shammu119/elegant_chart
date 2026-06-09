@@ -22,7 +22,7 @@ class LineMixin(DataMixin):
         x_col: Optional[str] = None,
         y_cols: Optional[Union[str, Sequence[str]]] = None,
         rotation: float = 0,
-        markers: bool = True,
+        markers: bool = False,
         linewidth: Optional[float] = None,
         show_value_labels: bool = False,
         compact_years: bool = False,
@@ -69,7 +69,7 @@ class LineMixin(DataMixin):
         x_plan = self._resolve_x_plan(x, active_xlim)
 
         # Resolve linewidth: None → auto-scale from reference; explicit float → honour as-is.
-        effective_lw = linewidth if linewidth is not None else self._px(0.8)  # type: ignore[attr-defined]
+        effective_lw = linewidth if linewidth is not None else self._px(0.6)  # type: ignore[attr-defined]
 
         with rc_context(self._rc):  # type: ignore[attr-defined]
             fig, ax = self._init_figure_and_axes()  # type: ignore[attr-defined]
@@ -95,7 +95,7 @@ class LineMixin(DataMixin):
                         color=color,
                         linewidth=effective_lw,
                         marker="o",
-                        markersize=self._px(3),  # type: ignore[attr-defined]
+                        markersize=self._px(2),  # type: ignore[attr-defined]
                         zorder=2,
                     )
                 else:
