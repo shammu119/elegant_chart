@@ -8,7 +8,12 @@ from matplotlib import font_manager
 
 class StyleMixin:
     def _fs(self, base: float) -> float:
-        return base * self.font_scale  # type: ignore[attr-defined]
+        """Font size in points, scaled by both font_scale and figure size."""
+        return base * self.font_scale * self._figure_scale  # type: ignore[attr-defined]
+
+    def _px(self, base: float) -> float:
+        """Geometric point value (linewidth, markersize, pad …) scaled by figure size only."""
+        return base * self._figure_scale  # type: ignore[attr-defined]
 
     def _register_fonts(self) -> None:
         """Try to register bundled SF Pro fonts; silently skip on missing files."""

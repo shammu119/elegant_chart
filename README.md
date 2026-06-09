@@ -85,7 +85,7 @@ chart = ElegantChart(theme="consulting_dark")
 | `subtitle` | `None` | Subtitle shown below the title |
 | `theme` | `"consulting_light"` | Visual theme |
 | `dpi` | `150` | Screen DPI (saving uses `save_dpi=500`) |
-| `figsize` | `(9, 6)` | Figure size in inches |
+| `figsize` | `(2.16, 2.7)` | Figure size in inches. Default × `save_dpi=500` → **1080×1350 px**. All fonts and geometric elements auto-scale proportionally on override. |
 | `y_formatter` | `"compact"` | Y-axis number format (`"compact"`, `"plain"`, `"percent"`) |
 
 ### `bar()` / `line()` shared parameters

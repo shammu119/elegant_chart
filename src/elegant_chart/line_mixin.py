@@ -23,7 +23,7 @@ class LineMixin(DataMixin):
         y_cols: Optional[Union[str, Sequence[str]]] = None,
         rotation: float = 0,
         markers: bool = True,
-        linewidth: float = 1.0,
+        linewidth: Optional[float] = None,
         show_value_labels: bool = False,
         compact_years: bool = False,
         x_tick_step: Optional[int] = None,
@@ -68,6 +68,9 @@ class LineMixin(DataMixin):
         active_xlim = xlim if xlim is not None else self.xlim  # type: ignore[attr-defined]
         x_plan = self._resolve_x_plan(x, active_xlim)
 
+        # Resolve linewidth: None → auto-scale from reference; explicit float → honour as-is.
+        effective_lw = linewidth if linewidth is not None else self._px(1.0)  # type: ignore[attr-defined]
+
         with rc_context(self._rc):  # type: ignore[attr-defined]
             fig, ax = self._init_figure_and_axes()  # type: ignore[attr-defined]
             self._configure_grid(ax)  # type: ignore[attr-defined]
@@ -87,9 +90,9 @@ class LineMixin(DataMixin):
                         x_positions, values,
                         label=lbl,
                         color=color,
-                        linewidth=linewidth,
+                        linewidth=effective_lw,
                         marker="o",
-                        markersize=3,
+                        markersize=self._px(3),  # type: ignore[attr-defined]
                         zorder=2,
                     )
                 else:
@@ -97,7 +100,7 @@ class LineMixin(DataMixin):
                         x_positions, values,
                         label=lbl,
                         color=color,
-                        linewidth=linewidth,
+                        linewidth=effective_lw,
                         zorder=2,
                     )
 
@@ -106,7 +109,7 @@ class LineMixin(DataMixin):
                         ax.annotate(
                             val_fmt(float(v), 0),
                             xy=(float(xp), float(v)),
-                            xytext=(0, 5),
+                            xytext=(0, self._px(5)),  # type: ignore[attr-defined]
                             textcoords="offset points",
                             ha="center",
                             va="bottom",
@@ -125,7 +128,7 @@ class LineMixin(DataMixin):
             )
 
             ax.tick_params(axis="y", which="both", length=0)
-            ax.tick_params(axis="x", which="major", pad=1.5, length=3, width=0.5)
+            ax.tick_params(axis="x", which="major", pad=self._px(1.5), length=self._px(3), width=self._px(0.5))
             ax.margins(x=0)
 
             if active_xlim is None and not x_plan.is_datetime:

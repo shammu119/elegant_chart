@@ -454,7 +454,7 @@ chart = ElegantChart(
     xlabel="Year",
     ylabel="Arrivals",      # shown on the right-hand y axis
     caption="Source: Maldives Immigration, 2024",
-    figsize=(10, 6),        # width × height in inches
+    figsize=(10, 6),        # explicit override (default is (2.16, 2.7) → 1080×1350 px at save_dpi=500; all elements auto-scale proportionally)
     font_scale=1.1,         # scale all font sizes by this factor
 )
 chart.bar(

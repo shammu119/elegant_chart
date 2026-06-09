@@ -14,6 +14,7 @@ Presentation
     theme      — str
     font_scale — float
     dpi        — int
+    _figure_scale — float  (auto; = min(fw/ref_w, fh/ref_h) against REFERENCE_FIGSIZE)
 
 Axis / tick
     x_tick_step, y_tick_step     — float | None
@@ -47,6 +48,10 @@ from typing import Optional, Tuple
 
 from .types import FormatterSpec
 
+# The design reference size (inches).  At this figsize _figure_scale == 1.0.
+# Pixel output: REFERENCE_FIGSIZE × default save_dpi = (2.16, 2.7) × 500 = 1080×1350 px.
+REFERENCE_FIGSIZE: Tuple[float, float] = (2.16, 2.7)
+
 
 class ChartBase:
     """Defines and initialises every attribute consumed by the mixins."""
@@ -58,7 +63,7 @@ class ChartBase:
         xlabel: Optional[str] = None,
         ylabel: Optional[str] = None,
         caption: Optional[str] = None,
-        figsize: Tuple[float, float] = (9, 6),
+        figsize: Tuple[float, float] = REFERENCE_FIGSIZE,
         theme: str = "consulting_light",
         font_scale: float = 1.0,
         dpi: int = 150,
@@ -81,6 +86,11 @@ class ChartBase:
         self.ylabel = ylabel
         self.caption = caption
         self.figsize = figsize
+        # Proportional scale relative to the reference design size.
+        # 1.0 at the default figsize; grows / shrinks linearly with figure size.
+        _ref_w, _ref_h = REFERENCE_FIGSIZE
+        _fw, _fh = self.figsize
+        self._figure_scale: float = min(_fw / _ref_w, _fh / _ref_h)
         self.theme = theme
         self.font_scale = font_scale
         self.dpi = dpi

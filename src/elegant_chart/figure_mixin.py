@@ -16,7 +16,7 @@ class FigureMixin:
             True,
             axis="y",
             linestyle="-",
-            linewidth=0.4,
+            linewidth=self._px(0.4),
             color=self.grid_color,
             alpha=0.9,
             zorder=0,
@@ -48,7 +48,7 @@ class FigureMixin:
 
         ax.spines["bottom"].set_visible(True)
         ax.spines["bottom"].set_color(self.color_spine)
-        ax.spines["bottom"].set_linewidth(0.5)
+        ax.spines["bottom"].set_linewidth(self._px(0.5))
 
         if self.title and self.subtitle:
             ax.text(

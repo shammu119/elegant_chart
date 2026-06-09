@@ -45,6 +45,8 @@ def test_instantiation_defaults():
     c = ElegantChart()
     assert c.theme == "consulting_light"
     assert c.dpi == 150
+    assert c.figsize == (2.16, 2.7), "Default figsize must yield 1080×1350 px at save_dpi=500"
+    assert c._figure_scale == 1.0, "_figure_scale must be 1.0 at the reference figsize"
     assert isinstance(c.palette, list)
     assert all(isinstance(color, str) for color in c.palette), \
         "All palette entries must be plain hex strings"
@@ -188,6 +190,18 @@ def test_line_save(tmp_path):
 def test_custom_dpi():
     c = ElegantChart(dpi=72)
     assert c._rc["figure.dpi"] == 72
+
+
+# ── figure scale proportionality ─────────────────────────────────────────────
+
+def test_figure_scale_proportional():
+    """At 2× the reference figsize, _figure_scale == 2.0 and helpers scale accordingly."""
+    c = ElegantChart(figsize=(4.32, 5.4))  # exactly 2× (2.16, 2.7)
+    assert c._figure_scale == 2.0
+    # _fs multiplies base × font_scale × _figure_scale
+    assert c._fs(10) == 10 * c.font_scale * 2.0
+    # _px multiplies base × _figure_scale only
+    assert c._px(1.0) == 2.0
 
 
 # ── compact_years opt-in ──────────────────────────────────────────────────────
