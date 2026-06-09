@@ -69,7 +69,7 @@ class LineMixin(DataMixin):
         x_plan = self._resolve_x_plan(x, active_xlim)
 
         # Resolve linewidth: None → auto-scale from reference; explicit float → honour as-is.
-        effective_lw = linewidth if linewidth is not None else self._px(1.0)  # type: ignore[attr-defined]
+        effective_lw = linewidth if linewidth is not None else self._px(0.8)  # type: ignore[attr-defined]
 
         with rc_context(self._rc):  # type: ignore[attr-defined]
             fig, ax = self._init_figure_and_axes()  # type: ignore[attr-defined]

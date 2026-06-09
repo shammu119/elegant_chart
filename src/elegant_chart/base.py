@@ -65,7 +65,7 @@ class ChartBase:
         caption: Optional[str] = None,
         figsize: Tuple[float, float] = REFERENCE_FIGSIZE,
         theme: str = "consulting_light",
-        font_scale: float = 1.0,
+        font_scale: float = 0.8,
         dpi: int = 150,
         x_tick_step: Optional[float] = None,
         max_x_ticks: Optional[int] = None,

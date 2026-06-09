@@ -47,9 +47,18 @@ def test_instantiation_defaults():
     assert c.dpi == 150
     assert c.figsize == (2.16, 2.7), "Default figsize must yield 1080×1350 px at save_dpi=500"
     assert c._figure_scale == 1.0, "_figure_scale must be 1.0 at the reference figsize"
+    assert c.font_scale == 0.8
     assert isinstance(c.palette, list)
     assert all(isinstance(color, str) for color in c.palette), \
         "All palette entries must be plain hex strings"
+
+
+def test_default_line_width_is_smaller():
+    c = make_chart()
+    fig, ax = c.line(x=[1, 2, 3], ys=[1, 2, 3], markers=False, show=False)
+    line = ax.lines[0]
+    assert line.get_linewidth() == pytest.approx(0.8)
+    plt.close(fig)
 
 
 def test_instantiation_all_themes():
