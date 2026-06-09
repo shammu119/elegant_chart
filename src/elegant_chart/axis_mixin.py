@@ -142,8 +142,17 @@ class AxisMixin:
 
         ax.yaxis.set_major_formatter(self._build_formatter(y_formatter))
 
-        # Tick labels are drawn inside the plot by _draw_economist_ytick_labels; hide defaults.
-        ax.tick_params(axis="y", which="both", length=0, labelleft=False, labelright=False)
+        # Orient the axis to the configured side.
+        if self.y_axis_side == "right":  # type: ignore[attr-defined]
+            ax.yaxis.tick_right()
+            ax.yaxis.set_label_position("right")
+
+        if self.y_tick_labels_inside:  # type: ignore[attr-defined]
+            # Custom text labels drawn by _draw_economist_ytick_labels; suppress matplotlib's.
+            ax.tick_params(axis="y", which="both", length=0, labelleft=False, labelright=False)
+        else:
+            # Standard matplotlib labels outside the axes on the active side.
+            ax.tick_params(axis="y", which="both", length=0)
 
         if y_tick_step is not None:
             ymin, ymax = ax.get_ylim()
@@ -174,7 +183,7 @@ class AxisMixin:
         ticks = locator.tick_values(ymin, ymax)
 
         # x is in axes fraction (0=left edge, 1=right edge); y is in data coordinates.
-        x_pos = 0.99 if secondary else 0.01
+        x_pos = 1.0 if secondary else 0.0
         h_align = "right" if secondary else "left"
         transform = ax.get_yaxis_transform()
 
@@ -188,7 +197,7 @@ class AxisMixin:
                     transform=transform,
                     ha=h_align,
                     va="bottom",
-                    fontsize=self._fs(6),  # type: ignore[attr-defined]
+                    fontsize=self._fs(10),  # type: ignore[attr-defined]
                     color=self.color_tick,  # type: ignore[attr-defined]
                     zorder=5,
                     clip_on=False,

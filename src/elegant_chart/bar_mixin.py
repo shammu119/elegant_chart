@@ -197,9 +197,14 @@ class BarMixin(DataMixin):
                 max_y_ticks=max_y_ticks,
                 y_formatter=y_formatter,
             )
-            ax.tick_params(axis="y", which="both", length=0)
+            ax.tick_params(axis="y", which="both", length=0, pad=0)
             ax.tick_params(axis="x", which="major", pad=self._px(1.5), length=self._px(3), width=self._px(0.5))
             ax.margins(x=0)
+            _xlo, _xhi = float(base_positions.min()), float(base_positions.max())
+            if _xlo == _xhi:
+                _xlo -= 0.5
+                _xhi += 0.5
+            ax.set_xlim(_xlo, _xhi)
 
             # ── finalize + output ─────────────────────────────────────────
             has_legend = any(lbl for lbl, _ in series_list)

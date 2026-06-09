@@ -48,9 +48,9 @@ from typing import Optional, Tuple
 
 from .types import FormatterSpec
 
-# The design reference size (inches).  At this figsize _figure_scale == 1.0.
-# Pixel output: REFERENCE_FIGSIZE × default save_dpi = (2.16, 2.7) × 500 = 1080×1350 px.
-REFERENCE_FIGSIZE: Tuple[float, float] = (2.16, 2.7)
+# Design reference size (inches) — _figure_scale == 1.0 here; all font/geometry specs are
+# authored at this canvas size and scale proportionally when figsize differs.
+REFERENCE_FIGSIZE: Tuple[float, float] = (3.6, 4.5)
 
 
 class ChartBase:
@@ -63,8 +63,8 @@ class ChartBase:
         xlabel: Optional[str] = None,
         ylabel: Optional[str] = None,
         caption: Optional[str] = None,
-        figsize: Tuple[float, float] = REFERENCE_FIGSIZE,
-        theme: str = "consulting_light",
+        figsize: Tuple[float, float] = (2.16, 2.70),  # 1080×1350 px at 500 DPI
+        theme: str = "newsroom_dark",
         font_scale: float = 0.9,
         dpi: int = 150,
         x_tick_step: Optional[float] = None,
@@ -75,9 +75,13 @@ class ChartBase:
         y_formatter: FormatterSpec = "compact",
         xlim: Optional[Tuple[float, float]] = None,
         ylim: Optional[Tuple[float, float]] = None,
-        logo_path: Optional[str] = "~/logo/ce_logo.png",
+        logo_path: Optional[str] = "logo/ce_logo.png",
         logo_height_rel: float = 0.12,
         logo_margin_rel: float = 0.02,
+        show_footer: bool = True,
+        y_axis_side: str = "right",
+        y_tick_labels_inside: bool = True,
+        show_y_spine: bool = False,
     ) -> None:
         # ── presentation ──────────────────────────────────────────────────
         self.title = title
@@ -111,6 +115,10 @@ class ChartBase:
         self.logo_path = logo_path
         self.logo_height_rel = logo_height_rel
         self.logo_margin_rel = logo_margin_rel
+        self.show_footer = show_footer
+        self.y_axis_side = y_axis_side
+        self.y_tick_labels_inside = y_tick_labels_inside
+        self.show_y_spine = show_y_spine
 
         # ── internal / scratch ────────────────────────────────────────────
         self._max_y_value: Optional[float] = None

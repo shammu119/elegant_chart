@@ -48,10 +48,10 @@ def test_import():
 
 def test_instantiation_defaults():
     c = ElegantChart()
-    assert c.theme == "consulting_light"
+    assert c.theme == "newsroom_dark"
     assert c.dpi == 150
-    assert c.figsize == (2.16, 2.7), "Default figsize must yield 1080×1350 px at save_dpi=500"
-    assert c._figure_scale == 1.0, "_figure_scale must be 1.0 at the reference figsize"
+    assert c.figsize == (2.16, 2.70), "Default figsize must yield 1080×1350 px at save_dpi=500"
+    assert c._figure_scale == pytest.approx(0.6), "_figure_scale must be 0.6 at the default figsize (2.16/3.6)"
     assert c.font_scale == 0.9
     assert isinstance(c.palette, list)
     assert all(isinstance(color, str) for color in c.palette), (
@@ -63,7 +63,7 @@ def test_default_line_style_is_compact():
     c = make_chart()
     fig, ax = c.line(x=[1, 2, 3], ys=[1, 2, 3], show=False)
     line = ax.lines[0]
-    assert line.get_linewidth() == pytest.approx(0.6)
+    assert line.get_linewidth() == pytest.approx(c._px(0.6))
     assert line.get_marker() == "None"
     plt.close(fig)
 
@@ -283,7 +283,7 @@ def test_custom_dpi():
 
 def test_figure_scale_proportional():
     """At 2× the reference figsize, _figure_scale == 2.0 and helpers scale accordingly."""
-    c = ElegantChart(figsize=(4.32, 5.4))  # exactly 2× (2.16, 2.7)
+    c = ElegantChart(figsize=(7.2, 9.0))  # exactly 2× (3.6, 4.5)
     assert c._figure_scale == 2.0
     # _fs multiplies base × font_scale and caps figure enlargement at 1.0.
     assert c._fs(10) == pytest.approx(10 * c.font_scale * min(c._figure_scale, 1.0))

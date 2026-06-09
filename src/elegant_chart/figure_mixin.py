@@ -49,94 +49,131 @@ class FigureMixin:
         ax.spines["bottom"].set_visible(True)
         ax.spines["bottom"].set_color(self.color_spine)
         ax.spines["bottom"].set_linewidth(self._px(0.5))
+        # Spine spans exactly the data x-range (xlim is set to data bounds in bar/line mixin).
+        _sp_lo, _sp_hi = ax.get_xlim()
+        ax.spines["bottom"].set_bounds(_sp_lo, _sp_hi)
 
-        if self.title and self.subtitle:
-            ax.text(
-                0.0,
-                1.06,
-                self.title,
-                transform=ax.transAxes,
-                fontsize=self._fs(7),
-                va="bottom",
-                ha="left",
-                wrap=True,
-                color=self.color_title,
-                fontfamily=self.font_title_family,
-                fontweight=self.font_title_weight,
-                clip_on=False,
-            )
-            ax.text(
-                0.0,
-                1.025,
-                self.subtitle,
-                transform=ax.transAxes,
-                fontsize=self._fs(4),
-                wrap=True,
-                va="top",
-                ha="left",
-                color=self.color_subtitle,
-                clip_on=False,
-            )
-        elif self.title:
-            ax.set_title(
-                self.title,
-                loc="left",
-                pad=0,
-                fontfamily=self.font_title_family,
-                fontweight=self.font_title_weight,
-                fontsize=self._fs(7),
-                color=self.color_title,
-            )
+        if self.show_y_spine and self.y_axis_side in ("left", "right"):
+            ax.spines[self.y_axis_side].set_visible(True)
+            ax.spines[self.y_axis_side].set_color(self.color_spine)
+            ax.spines[self.y_axis_side].set_linewidth(self._px(0.5))
+
+        _title_kwargs = dict(
+            transform=ax.transAxes,
+            fontsize=self._fs(18),
+            va="bottom",
+            ha="left",
+            color=self.color_title,
+            fontfamily=self.font_title_family,
+            fontweight=self.font_title_weight,
+            clip_on=False,
+        )
+
+        if self.title:
+            ax.text(0.0, 1.24, self.title, **_title_kwargs)
+
+        if self.subtitle:
+            # Render each line separately so subtitle_line_gap_rel (0.01) can be applied.
+            # line_step = one subtitle line height in axes-fraction + 1% gap.
+            _ax_h_pt = self.figsize[1] * (0.76 - 0.24) * 72
+            _line_step = self._fs(12) / _ax_h_pt + 0.01
+            for i, line in enumerate(self.subtitle.split("\n")):
+                ax.text(
+                    0.0,
+                    1.20 - i * _line_step,
+                    line,
+                    transform=ax.transAxes,
+                    fontsize=self._fs(12),
+                    va="top",
+                    ha="left",
+                    color=self.color_subtitle,
+                    clip_on=False,
+                )
 
         if self.xlabel:
-            ax.set_xlabel(self.xlabel, color=self.color_axes_label, fontsize=self._fs(5))
+            ax.set_xlabel(self.xlabel, color=self.color_axes_label, fontsize=self._fs(11))
         if self.ylabel:
-            ax.set_ylabel(self.ylabel, color=self.color_axes_label, fontsize=self._fs(5))
+            ax.set_ylabel(self.ylabel, color=self.color_axes_label, fontsize=self._fs(11))
 
         if has_legend:
             ax.legend(
-                loc="upper right",
-                bbox_to_anchor=(1.0, 1.0),
+                loc="upper left",
+                bbox_to_anchor=(-0.01, 1.09),
                 frameon=False,
-                fontsize=self._fs(4),
+                fontsize=self._fs(11),
                 handletextpad=self._px(0.4),
                 labelspacing=0.15,
-                borderaxespad=0.2,
+                borderaxespad=0.0,
             )
 
-        # Draw Economist-style inside tick labels after all axis/data setup is complete.
-        self._draw_economist_ytick_labels(ax)  # type: ignore[attr-defined]
+        # Draw inside tick labels only when requested; side mirrors y_axis_side.
+        if self.y_tick_labels_inside:
+            self._draw_economist_ytick_labels(  # type: ignore[attr-defined]
+                ax, secondary=(self.y_axis_side == "right")
+            )
+
+        self._auto_expand_bottom(ax)
 
         plt.subplots_adjust(
-            left=0.02,   # no external y-axis — reclaim left margin
-            right=0.98,  # reclaim right margin too
-            top=0.80,
-            bottom=0.16,
+            left=0.08,
+            right=0.92,
+            top=0.76,
+            bottom=0.24,
         )
 
-    def _add_footer(self, fig: plt.Figure) -> None:
-        has_caption = bool(self.caption)
-        has_logo = bool(self.logo_path)
+    def _auto_expand_bottom(self, ax: plt.Axes) -> None:
+        """Re-adjust bottom margin if x-tick labels bleed below the figure boundary."""
+        fig = ax.get_figure()
+        try:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            tight_bb = fig.get_tightbbox(renderer)
+            if tight_bb is None:
+                return
+            fig_h_px = fig.get_size_inches()[1] * fig.dpi
+            tight_bot_frac = tight_bb.y0 / fig_h_px
+            if tight_bot_frac < 0.0:
+                extra = abs(tight_bot_frac) + 0.01
+                plt.subplots_adjust(bottom=min(fig.subplotpars.bottom + extra, 0.45))
+        except Exception:
+            pass
 
-        if not (has_caption or has_logo):
+    def _add_footer(self, fig: plt.Figure) -> None:
+        if not self.show_footer:
             return
 
-        footer_top = 0.15
+        from matplotlib.lines import Line2D
 
-        if has_caption:
+        sp = fig.subplotpars
+        footer_line_y = 0.155
+        caption_y = 0.143  # footer_line_y - 0.012
+
+        # Baseline rule spanning subplot width
+        fig.add_artist(
+            Line2D(
+                [sp.left, sp.right],
+                [footer_line_y, footer_line_y],
+                transform=fig.transFigure,
+                color=self.color_spine,
+                linewidth=self._px(0.5),
+                clip_on=False,
+            )
+        )
+
+        if self.caption:
             fig.text(
-                0.05,
-                footer_top,
+                sp.left,
+                caption_y,
                 self.caption,
                 ha="left",
                 va="top",
-                fontsize=self._fs(8),
+                fontsize=self._fs(9),
                 color=self.color_caption,
                 fontfamily=self.font_caption_family,
                 fontweight=self.font_caption_weight,
             )
 
-        if has_logo:
+        if self.logo_path:
             path = os.path.expanduser(self.logo_path)
             if not os.path.exists(path):
                 return
@@ -157,8 +194,9 @@ class FigureMixin:
             fig_aspect = fig_w / fig_h
             logo_width = logo_height * aspect / fig_aspect
 
-            left = 1.0 - logo_width - self.logo_margin_rel
-            bottom = footer_top - logo_height
+            # Right-aligned to subplot right; top flush with baseline rule
+            left = sp.right - logo_width
+            bottom = footer_line_y - logo_height
 
             ax_logo = fig.add_axes([left, bottom, logo_width, logo_height])
             ax_logo.imshow(img)
@@ -168,7 +206,7 @@ class FigureMixin:
         self,
         fig: plt.Figure,
         save_path: str,
-        dpi: int = 300,
+        dpi: int = 500,
         fmt: Optional[str] = None,
         **kwargs: Any,
     ) -> None:

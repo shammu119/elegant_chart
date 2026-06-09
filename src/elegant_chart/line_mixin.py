@@ -131,7 +131,7 @@ class LineMixin(DataMixin):
                 y_formatter=y_formatter,
             )
 
-            ax.tick_params(axis="y", which="both", length=0)
+            ax.tick_params(axis="y", which="both", length=0, pad=0)
             ax.tick_params(
                 axis="x", which="major", pad=self._px(1.5), length=self._px(3), width=self._px(0.5)
             )

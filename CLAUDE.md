@@ -27,7 +27,11 @@ Palettes are highly intentional and bounded by themes:
 - **Gradients**: Certain themes leverage procedural gradients. For example, `newsroom_dark` applies a precise vertical gradient on bars (`#0077CC` to `#64D2FF`) for depth, replacing flat fills.
 
 ### Layout & Sizing
-- **Density**: The standard `figsize` is often tight (e.g., `2.16 x 2.7` inches) with `dpi=500`. This ensures incredibly crisp rendering suited for high-density displays and publications.
+- **Canonical output**: Strictly **1080 × 1350 px** at **500 DPI** save output. This corresponds to `figsize=(2.16, 2.70)` inches (default). Never change this output resolution without an explicit design decision.
+- **Design reference canvas**: `REFERENCE_FIGSIZE = (3.6, 4.5)` inches. All font and geometry base values are authored at this size. When `figsize=(2.16, 2.70)`, `_figure_scale = 0.6` and `_fs()` automatically scales fonts down proportionally — no manual `font_scale` adjustment is needed.
+- **Font base sizes** (effective = base × 0.9 × 0.6 at default figsize): title 18 pt, subtitle 12 pt, axes label 11 pt, tick label 10 pt, caption 9 pt.
+- **Subplot margins**: left=0.08, right=0.92, top=0.76, bottom=0.24.
+- **X-axis padding**: 0.025 relative on the left, 0 on the right. Y-tick label pad: 0.
 - **Alignment**: Titles and subtitles are flush left. Captions sit flush bottom. Logos are strategically placed at the top right or bottom right without interfering with the title layout.
 
 ### Smart Data Representation
