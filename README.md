@@ -115,6 +115,8 @@ Store your bearer token in a **gitignored** `TOKEN.txt` file (one line, the toke
 ```python
 from elegant_chart.get_api_data import get_series_df
 
+# Loads from data/series_2307.xlsx when available, otherwise fetches from the API
+# and caches the result to that file for future calls.
 df = get_series_df(2307)
 df.to_excel("data.xlsx", index=False)
 ```

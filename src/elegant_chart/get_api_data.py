@@ -32,6 +32,8 @@ from pathlib import Path
 
 import pandas as pd
 
+CACHE_DIR = Path("data")
+
 
 def _load_token() -> str:
     """Return the MMA API bearer token, or raise RuntimeError."""
@@ -52,9 +54,42 @@ def _load_token() -> str:
     )
 
 
+def _series_cache_path(series_id: int) -> Path:
+    return CACHE_DIR / f"series_{series_id}.xlsx"
+
+
+def _load_cached_series_df(path: Path) -> pd.DataFrame:
+    try:
+        import openpyxl  # noqa: PLC0415 — optional dependency, imported lazily
+    except ImportError as exc:
+        raise ImportError(
+            "openpyxl is required to read cached Excel data. "
+            "Install it with: pip install \"elegant_chart[data]\""
+        ) from exc
+
+    return pd.read_excel(path, engine="openpyxl")
+
+
+def _save_cached_series_df(path: Path, df: pd.DataFrame) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        import openpyxl  # noqa: PLC0415 — optional dependency, imported lazily
+    except ImportError as exc:
+        raise ImportError(
+            "openpyxl is required to cache API data as Excel. "
+            "Install it with: pip install \"elegant_chart[data]\""
+        ) from exc
+
+    df.to_excel(path, index=False, engine="openpyxl")
+
+
 def get_series_df(series_id: int, timeout: int = 30) -> pd.DataFrame:
     """
     Fetch a single time series from the MMA Statistics database.
+
+    If a cached Excel file exists at ``data/series_<id>.xlsx``, it is loaded
+    instead of calling the API. When the file is missing, the API is fetched
+    and the result is saved to the cache folder.
 
     Parameters
     ----------
@@ -69,6 +104,10 @@ def get_series_df(series_id: int, timeout: int = 30) -> pd.DataFrame:
         A DataFrame of the series ``data`` records, or an empty DataFrame if
         the series was not found.
     """
+    cached_path = _series_cache_path(series_id)
+    if cached_path.exists():
+        return _load_cached_series_df(cached_path)
+
     try:
         import requests  # noqa: PLC0415 — optional dependency, imported lazily
     except ImportError as exc:
@@ -93,4 +132,6 @@ def get_series_df(series_id: int, timeout: int = 30) -> pd.DataFrame:
         return pd.DataFrame()
 
     series = series_list[0]
-    return pd.DataFrame(series.get("data", []))
+    df = pd.DataFrame(series.get("data", []))
+    _save_cached_series_df(cached_path, df)
+    return df

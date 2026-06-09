@@ -169,6 +169,61 @@ def test_line_from_dataframe():
     assert_figure(c.line(df=df, x_col="x", y_cols=["y1", "y2"], show=False))
 
 
+def test_get_series_df_uses_cached_excel(tmp_path, monkeypatch):
+    pytest.importorskip("openpyxl")
+    monkeypatch.chdir(tmp_path)
+
+    expected = pd.DataFrame({"x": ["A", "B"], "y": [1, 2]})
+    cache_file = tmp_path / "data" / "series_2307.xlsx"
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    expected.to_excel(cache_file, index=False, engine="openpyxl")
+
+    from elegant_chart.get_api_data import get_series_df
+
+    result = get_series_df(2307)
+    pd.testing.assert_frame_equal(result, expected)
+
+
+def test_get_series_df_creates_excel_cache_on_api_fetch(tmp_path, monkeypatch):
+    requests = pytest.importorskip("requests")
+    pytest.importorskip("openpyxl")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MMA_API_TOKEN", "fake-token")
+
+    class DummyResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "data": [
+                    {
+                        "data": [
+                            {"x": "A", "y": 1},
+                            {"x": "B", "y": 2},
+                        ]
+                    }
+                ]
+            }
+
+    def fake_get(url, auth, verify, timeout):
+        assert "database.mma.gov.mv" in url
+        return DummyResponse()
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    from elegant_chart.get_api_data import get_series_df
+
+    result = get_series_df(2307)
+    expected = pd.DataFrame([{"x": "A", "y": 1}, {"x": "B", "y": 2}])
+    pd.testing.assert_frame_equal(result, expected)
+
+    cached_file = tmp_path / "data" / "series_2307.xlsx"
+    assert cached_file.exists()
+    loaded = pd.read_excel(cached_file, engine="openpyxl")
+    pd.testing.assert_frame_equal(loaded, expected)
+
+
 # ── save_path round-trip ──────────────────────────────────────────────────────
 
 def test_bar_save(tmp_path):
