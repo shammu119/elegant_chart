@@ -6,10 +6,30 @@ import warnings
 from matplotlib import font_manager
 
 
+# Base font sizes in points, authored at REFERENCE_FIGSIZE; scaled via _ts()/_fs().
+TYPE_SCALE = {
+    "title": 18,        # spec 16-18pt (kept at top of range)
+    "subtitle": 13,     # spec 12-13pt
+    "axis_label": 10,   # spec 9-10pt
+    "tick_label": 10,   # spec 9-10pt
+    "legend": 10,       # aligned to data-label tier
+    "value_label": 8,   # compact data labels
+    "caption": 8,       # spec source/footnote 8pt
+    "annotation": 10,   # axis-label tier, muted in-plot text
+}
+
+# Leading ratio applied to multi-line title/subtitle/caption text.
+LINESPACING = 1.25
+
+
 class StyleMixin:
     def _fs(self, base: float) -> float:
         """Font size in points, scaled by font_scale and capped at the reference figure size."""
         return base * self.font_scale * min(self._figure_scale, 1.0)  # type: ignore[attr-defined]
+
+    def _ts(self, name: str) -> float:
+        """Scaled font size in points for a named type-scale role (see TYPE_SCALE)."""
+        return self._fs(TYPE_SCALE[name])
 
     def _px(self, base: float) -> float:
         """Geometric point value (linewidth, markersize, pad …) scaled by figure size only."""
@@ -97,6 +117,7 @@ class StyleMixin:
             self.color_title = "#f0f0f0"  # type: ignore[attr-defined]
             self.color_subtitle = "#999999"  # type: ignore[attr-defined]
             self.color_caption = "#999999"  # type: ignore[attr-defined]
+            self.color_annotation = "#999999"  # type: ignore[attr-defined]
             self.color_spine = "#E5E7EB"  # type: ignore[attr-defined]
         else:
             self.color_axes_edge = "#444444"  # type: ignore[attr-defined]
@@ -106,6 +127,7 @@ class StyleMixin:
             self.color_title = "#111111"  # type: ignore[attr-defined]
             self.color_subtitle = "#666666"  # type: ignore[attr-defined]
             self.color_caption = "#555555"  # type: ignore[attr-defined]
+            self.color_annotation = "#555555"  # type: ignore[attr-defined]
             self.color_spine = "#000000"  # type: ignore[attr-defined]
 
         dpi = getattr(self, "dpi", 150)
@@ -113,10 +135,10 @@ class StyleMixin:
             {
                 "figure.dpi": dpi,
                 "font.family": self.font_main_family,
-                "axes.titlesize": self._fs(18),
-                "axes.labelsize": self._fs(11),
-                "xtick.labelsize": self._fs(10),
-                "ytick.labelsize": self._fs(10),
+                "axes.titlesize": self._ts("title"),
+                "axes.labelsize": self._ts("axis_label"),
+                "xtick.labelsize": self._ts("tick_label"),
+                "ytick.labelsize": self._ts("tick_label"),
                 "axes.edgecolor": self.color_axes_edge,
                 "axes.labelcolor": self.color_axes_label,
                 "text.color": self.color_text_main,

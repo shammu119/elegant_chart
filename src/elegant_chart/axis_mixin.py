@@ -197,7 +197,7 @@ class AxisMixin:
                     transform=transform,
                     ha=h_align,
                     va="bottom",
-                    fontsize=self._fs(10),  # type: ignore[attr-defined]
+                    fontsize=self._ts("tick_label"),  # type: ignore[attr-defined]
                     color=self.color_tick,  # type: ignore[attr-defined]
                     zorder=5,
                     clip_on=False,

@@ -10,6 +10,7 @@ Attribute contract (mixins may read, only __init__ writes)
 ----------------------------------------------------------
 Presentation
     title, subtitle, xlabel, ylabel, caption  — str | None
+    annotations — list[dict] (sparse muted-grey in-plot callouts; see FigureMixin._draw_annotations)
     figsize    — (float, float)
     theme      — str
     font_scale — float
@@ -44,7 +45,7 @@ Last-render cache (written by bar/line, read by export_data)
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from .types import FormatterSpec
 
@@ -82,6 +83,7 @@ class ChartBase:
         y_axis_side: str = "right",
         y_tick_labels_inside: bool = True,
         show_y_spine: bool = False,
+        annotations: Optional[list[dict[str, Any]]] = None,
     ) -> None:
         # ── presentation ──────────────────────────────────────────────────
         self.title = title
@@ -89,6 +91,7 @@ class ChartBase:
         self.xlabel = xlabel
         self.ylabel = ylabel
         self.caption = caption
+        self.annotations = annotations or []
         self.figsize = figsize
         # Proportional scale relative to the reference design size.
         # 1.0 at the default figsize; grows / shrinks linearly with figure size.

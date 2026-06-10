@@ -3,6 +3,8 @@ from typing import Any, Optional, Tuple
 import os
 import matplotlib.pyplot as plt
 
+from .style_mixin import LINESPACING
+
 
 class FigureMixin:
     def _init_figure_and_axes(self) -> Tuple[plt.Figure, plt.Axes]:
@@ -60,12 +62,13 @@ class FigureMixin:
 
         _title_kwargs = dict(
             transform=ax.transAxes,
-            fontsize=self._fs(18),
+            fontsize=self._ts("title"),
             va="bottom",
             ha="left",
             color=self.color_title,
             fontfamily=self.font_title_family,
             fontweight=self.font_title_weight,
+            linespacing=LINESPACING,
             clip_on=False,
         )
 
@@ -73,34 +76,33 @@ class FigureMixin:
             ax.text(0.0, 1.24, self.title, **_title_kwargs)
 
         if self.subtitle:
-            # Render each line separately so subtitle_line_gap_rel (0.01) can be applied.
-            # line_step = one subtitle line height in axes-fraction + 1% gap.
-            _ax_h_pt = self.figsize[1] * (0.76 - 0.24) * 72
-            _line_step = self._fs(12) / _ax_h_pt + 0.01
-            for i, line in enumerate(self.subtitle.split("\n")):
-                ax.text(
-                    0.0,
-                    1.20 - i * _line_step,
-                    line,
-                    transform=ax.transAxes,
-                    fontsize=self._fs(12),
-                    va="top",
-                    ha="left",
-                    color=self.color_subtitle,
-                    clip_on=False,
-                )
+            # Single multi-line text block; leading is governed by linespacing
+            # rather than a hand-stepped per-line offset.
+            ax.text(
+                0.0,
+                1.20,
+                self.subtitle,
+                transform=ax.transAxes,
+                fontsize=self._ts("subtitle"),
+                va="top",
+                ha="left",
+                color=self.color_subtitle,
+                fontfamily=self.font_main_family,
+                linespacing=LINESPACING,
+                clip_on=False,
+            )
 
         if self.xlabel:
-            ax.set_xlabel(self.xlabel, color=self.color_axes_label, fontsize=self._fs(11))
+            ax.set_xlabel(self.xlabel, color=self.color_axes_label, fontsize=self._ts("axis_label"))
         if self.ylabel:
-            ax.set_ylabel(self.ylabel, color=self.color_axes_label, fontsize=self._fs(11))
+            ax.set_ylabel(self.ylabel, color=self.color_axes_label, fontsize=self._ts("axis_label"))
 
         if has_legend:
             ax.legend(
                 loc="upper left",
                 bbox_to_anchor=(-0.01, 1.09),
                 frameon=False,
-                fontsize=self._fs(11),
+                fontsize=self._ts("legend"),
                 handletextpad=self._px(0.4),
                 labelspacing=0.15,
                 borderaxespad=0.0,
@@ -112,6 +114,8 @@ class FigureMixin:
                 ax, secondary=(self.y_axis_side == "right")
             )
 
+        self._draw_annotations(ax)
+
         self._auto_expand_bottom(ax)
 
         plt.subplots_adjust(
@@ -120,6 +124,34 @@ class FigureMixin:
             top=0.76,
             bottom=0.24,
         )
+
+    def _draw_annotations(self, ax: plt.Axes) -> None:
+        """Draw sparse, muted-grey in-plot annotations declared via `annotations=[...]`.
+
+        Each entry is a dict: {"x", "y", "text", "dx"=0, "dy"=0,
+        "ha"="left", "va"="bottom", "arrow"=False}.
+        """
+        for ann in self.annotations:
+            arrowprops = None
+            if ann.get("arrow"):
+                arrowprops = dict(
+                    arrowstyle="-",
+                    color=self.color_annotation,
+                    linewidth=self._px(0.5),
+                )
+            ax.annotate(
+                ann["text"],
+                xy=(ann["x"], ann["y"]),
+                xytext=(ann.get("dx", 0), ann.get("dy", 0)),
+                textcoords="offset points",
+                ha=ann.get("ha", "left"),
+                va=ann.get("va", "bottom"),
+                fontsize=self._ts("annotation"),
+                color=self.color_annotation,
+                fontfamily=self.font_main_family,
+                arrowprops=arrowprops,
+                zorder=5,
+            )
 
     def _auto_expand_bottom(self, ax: plt.Axes) -> None:
         """Re-adjust bottom margin if x-tick labels bleed below the figure boundary."""
@@ -167,10 +199,11 @@ class FigureMixin:
                 self.caption,
                 ha="left",
                 va="top",
-                fontsize=self._fs(9),
+                fontsize=self._ts("caption"),
                 color=self.color_caption,
                 fontfamily=self.font_caption_family,
                 fontweight=self.font_caption_weight,
+                linespacing=LINESPACING,
             )
 
         if self.logo_path:

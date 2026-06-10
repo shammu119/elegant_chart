@@ -117,7 +117,7 @@ class LineMixin(DataMixin):
                             textcoords="offset points",
                             ha="center",
                             va="bottom",
-                            fontsize=self._fs(7),  # type: ignore[attr-defined]
+                            fontsize=self._ts("value_label"),  # type: ignore[attr-defined]
                             color=self.color_text_main,  # type: ignore[attr-defined]
                             zorder=6,
                         )

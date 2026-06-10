@@ -104,7 +104,7 @@ class BarMixin(DataMixin):
                             ax.text(
                                 float(pos), bar_top, val_fmt(float(v), 0),
                                 ha="center", va="bottom",
-                                fontsize=self._fs(7),  # type: ignore[attr-defined]
+                                fontsize=self._ts("value_label"),  # type: ignore[attr-defined]
                                 color=self.color_text_main,  # type: ignore[attr-defined]
                                 zorder=6,
                             )
@@ -133,7 +133,7 @@ class BarMixin(DataMixin):
                             ax.text(
                                 float(pos) + offset, float(v), val_fmt(float(v), 0),
                                 ha="center", va="bottom",
-                                fontsize=self._fs(7),  # type: ignore[attr-defined]
+                                fontsize=self._ts("value_label"),  # type: ignore[attr-defined]
                                 color=self.color_text_main,  # type: ignore[attr-defined]
                                 zorder=6,
                             )
