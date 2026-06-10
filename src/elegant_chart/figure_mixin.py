@@ -5,6 +5,11 @@ import matplotlib.pyplot as plt
 
 from .style_mixin import LINESPACING
 
+# Hairline weight for horizontal gridlines, in design points (scaled via _px()).
+# The x-axis baseline is drawn at GRID_LINEWIDTH + 0.5 so it reads as visually
+# "grounded" against the lighter gridlines above it.
+GRID_LINEWIDTH = 0.4
+
 
 class FigureMixin:
     def _init_figure_and_axes(self) -> Tuple[plt.Figure, plt.Axes]:
@@ -18,7 +23,7 @@ class FigureMixin:
             True,
             axis="y",
             linestyle="-",
-            linewidth=self._px(0.4),
+            linewidth=self._px(GRID_LINEWIDTH),
             color=self.grid_color,
             alpha=0.9,
             zorder=0,
@@ -50,7 +55,8 @@ class FigureMixin:
 
         ax.spines["bottom"].set_visible(True)
         ax.spines["bottom"].set_color(self.color_spine)
-        ax.spines["bottom"].set_linewidth(self._px(0.5))
+        # Baseline is grounded: 0.5pt heavier than the gridlines it anchors.
+        ax.spines["bottom"].set_linewidth(self._px(GRID_LINEWIDTH + 0.5))
         # Spine spans exactly the data x-range (xlim is set to data bounds in bar/line mixin).
         _sp_lo, _sp_hi = ax.get_xlim()
         ax.spines["bottom"].set_bounds(_sp_lo, _sp_hi)
@@ -98,12 +104,20 @@ class FigureMixin:
             ax.set_ylabel(self.ylabel, color=self.color_axes_label, fontsize=self._ts("axis_label"))
 
         if has_legend:
+            # 2-3 column horizontal grid, left-aligned between the subtitle and
+            # the plot top; items wrap to a second row only after filling columns.
+            handles, labels = ax.get_legend_handles_labels()
+            ncol = max(1, min(3, len(labels)))
             ax.legend(
+                handles,
+                labels,
                 loc="upper left",
-                bbox_to_anchor=(-0.01, 1.09),
+                bbox_to_anchor=(0.0, 1.10),
+                ncol=ncol,
                 frameon=False,
                 fontsize=self._ts("legend"),
                 handletextpad=self._px(0.4),
+                columnspacing=self._px(1.0),
                 labelspacing=0.15,
                 borderaxespad=0.0,
             )
@@ -119,14 +133,21 @@ class FigureMixin:
 
         self._auto_expand_bottom(ax)
 
+        # Horizontal-first: y-tick labels now live inside the plot, so the
+        # left/right margins can shrink to near-zero dead space. Top/bottom
+        # are unchanged — they hold the title/subtitle/legend stack and footer.
         plt.subplots_adjust(
-            left=0.08,
-            right=0.92,
+            left=0.04,
+            right=0.97,
             top=0.76,
             bottom=0.24,
         )
 
         self._auto_expand_right(ax, inside_ytick_texts)
+
+        # Anchor the data range with explicit boundary ticks at the exact
+        # x start/end, after layout has settled (geometry-dependent).
+        self._draw_x_boundary_ticks(ax)  # type: ignore[attr-defined]
 
     def _draw_annotations(self, ax: plt.Axes) -> None:
         """Draw sparse, muted-grey in-plot annotations declared via `annotations=[...]`.

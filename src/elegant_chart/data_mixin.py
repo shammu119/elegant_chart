@@ -125,6 +125,20 @@ class DataMixin:
             finite = arr[np.isfinite(arr)]
             self._max_y_value = float(finite.max()) if finite.size > 0 else 1.0  # type: ignore[attr-defined]
 
+    # ── legend ────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _should_show_legend(
+        series_list: List[Tuple[Optional[str], List[float]]],
+    ) -> bool:
+        """A legend earns its place only when it disambiguates >=2 series.
+
+        A single labelled series should rely on the subtitle to name its
+        metric (per the "data-to-ink" principle) rather than spend the
+        legend band on a one-item key.
+        """
+        return sum(1 for lbl, _ in series_list if lbl) >= 2
+
     # ── datetime detection ────────────────────────────────────────────────
 
     def _is_datetime_like(self, value: Any) -> bool:

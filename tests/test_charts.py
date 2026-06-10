@@ -528,3 +528,125 @@ def test_palette_is_flat_strings(theme):
         assert isinstance(entry, str), (
             f"Theme '{theme}' palette contains a non-string entry: {entry!r}"
         )
+
+
+# ── legend visibility (single vs. multi series) ───────────────────────────
+
+
+def test_single_labeled_series_suppresses_legend():
+    """A lone labelled series relies on the subtitle; no legend is drawn."""
+    c = make_chart()
+    fig, ax = c.bar(x=["A", "B", "C"], ys={"Occupancy": [1, 2, 3]}, show=False)
+    assert ax.get_legend() is None
+    plt.close(fig)
+
+
+def test_unlabeled_single_series_has_no_legend():
+    c = make_chart()
+    fig, ax = c.line(x=["A", "B", "C"], ys=[1, 2, 3], show=False)
+    assert ax.get_legend() is None
+    plt.close(fig)
+
+
+def test_multi_series_legend_uses_multi_column_grid():
+    """>=2 labelled series draw a legend arranged as a 2-3 column grid."""
+    c = make_chart()
+    fig, ax = c.line(
+        x=["A", "B", "C"],
+        ys=[[1, 2, 3], [3, 2, 1]],
+        labels=["Up", "Down"],
+        show=False,
+    )
+    legend = ax.get_legend()
+    assert legend is not None
+    # Attribute was renamed _ncol -> _ncols in matplotlib 3.6.
+    ncols = getattr(legend, "_ncols", None) or getattr(legend, "_ncol", 1)
+    assert ncols == 2
+    plt.close(fig)
+
+
+# ── x-axis boundary ticks ──────────────────────────────────────────────────
+
+
+def test_boundary_ticks_drawn_at_xlim():
+    """_finalize_axes adds short vertical Line2D segments at both x-limits."""
+    c = make_chart()
+    fig, ax = c.line(x=[0, 1, 2, 3], ys=[0, 1, 4, 9], show=False)
+    xlim = ax.get_xlim()
+
+    # Boundary ticks are the only Line2D segments with two equal x-values.
+    boundary_x = {
+        ln.get_xdata()[0]
+        for ln in ax.lines
+        if len(ln.get_xdata()) == 2 and ln.get_xdata()[0] == ln.get_xdata()[1]
+    }
+    assert set(xlim) <= boundary_x, "Expected a boundary tick at both xlim endpoints"
+    plt.close(fig)
+
+
+def test_boundary_ticks_present_for_datetime_axis():
+    """Boundary ticks also anchor datetime axes, where AutoDateLocator may
+    skip the exact endpoints."""
+    c = make_chart()
+    dates = [datetime(2020, 1, 1), datetime(2021, 6, 1), datetime(2022, 12, 1)]
+    fig, ax = c.line(x=dates, ys=[5, 7, 6], show=False)
+    xlim = ax.get_xlim()
+
+    boundary_x = {
+        ln.get_xdata()[0]
+        for ln in ax.lines
+        if len(ln.get_xdata()) == 2 and ln.get_xdata()[0] == ln.get_xdata()[1]
+    }
+    assert set(xlim) <= boundary_x
+    plt.close(fig)
+
+
+# ── color roles & color_map ────────────────────────────────────────────────
+
+
+def test_series_color_is_positional_by_default():
+    """Unconfigured series take colors by order via the named role table."""
+    c = make_chart()
+    assert c._series_color(0) == c.color_roles["primary"] == c.palette[0]
+    assert c._series_color(1) == c.color_roles["secondary"] == c.palette[1]
+
+
+def test_series_color_map_role_override():
+    """color_map may pin a labelled series to a named role out of order."""
+    c = make_chart(color_map={"Resorts": "tertiary"})
+    assert c._series_color(0, "Resorts") == c.color_roles["tertiary"]
+    # An unmapped label still falls back to its positional role.
+    assert c._series_color(1, "Hotels") == c.color_roles["secondary"]
+
+
+def test_series_color_map_hex_override():
+    """color_map may also pin a labelled series to a literal hex color."""
+    c = make_chart(color_map={"Hotels": "#ABCDEF"})
+    assert c._series_color(1, "Hotels") == "#ABCDEF"
+
+
+def test_bar_series_colors_follow_role_table():
+    """Rendered grouped-bar colors match _series_color's role-based assignment.
+
+    Each series is drawn via its own ax.bar() call (bar_mixin's grouped-bar
+    loop), so ax.patches holds series A's 2 bars first, then series B's —
+    individual Rectangle patches all get label='_nolegend_' in matplotlib,
+    so position (not get_label()) is what identifies each series here.
+    """
+    from matplotlib.colors import to_hex
+
+    c = make_chart()
+    fig, ax = c.bar(
+        x=["Q1", "Q2"],
+        ys=[[1, 2], [3, 4]],
+        labels=["A", "B"],
+        show=False,
+    )
+    assert len(ax.patches) == 4
+    expected_a = c._series_color(0, "A").lower()
+    expected_b = c._series_color(1, "B").lower()
+    assert to_hex(ax.patches[0].get_facecolor()) == expected_a
+    assert to_hex(ax.patches[1].get_facecolor()) == expected_a
+    assert to_hex(ax.patches[2].get_facecolor()) == expected_b
+    assert to_hex(ax.patches[3].get_facecolor()) == expected_b
+    plt.close(fig)

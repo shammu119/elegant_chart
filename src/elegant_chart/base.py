@@ -13,6 +13,8 @@ Presentation
     annotations — list[dict] (sparse muted-grey in-plot callouts; see FigureMixin._draw_annotations)
     figsize    — (float, float)
     theme      — str
+    color_map  — dict[str, str]  (series label -> role name or hex; optional
+                  per-series override consumed by StyleMixin._series_color)
     font_scale — float
     dpi        — int
     _figure_scale — float  (auto; = min(fw/ref_w, fh/ref_h) against REFERENCE_FIGSIZE)
@@ -30,6 +32,8 @@ Logo / footer
 Internal (set once by _apply_base_style)
     _rc                          — dict[str, Any]   (matplotlib rcParams overlay)
     palette                      — list[str]
+    color_roles                  — dict[str, str]  (role name -> hex, derived
+                                    from palette[0..n]; see StyleMixin._series_color)
     grid_color, bg_color         — str
     color_*                      — str
     font_*                       — str
@@ -66,6 +70,7 @@ class ChartBase:
         caption: Optional[str] = None,
         figsize: Tuple[float, float] = (2.16, 2.70),  # 1080×1350 px at 500 DPI
         theme: str = "newsroom_dark",
+        color_map: Optional[dict[str, str]] = None,
         font_scale: float = 0.9,
         dpi: int = 150,
         x_tick_step: Optional[float] = None,
@@ -99,6 +104,7 @@ class ChartBase:
         _fw, _fh = self.figsize
         self._figure_scale: float = min(_fw / _ref_w, _fh / _ref_h)
         self.theme = theme
+        self.color_map = color_map or {}
         self.font_scale = font_scale
         self.dpi = dpi
 

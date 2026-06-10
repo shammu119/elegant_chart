@@ -2,24 +2,30 @@
 from __future__ import annotations
 
 import warnings
+from typing import Optional
 
 from matplotlib import font_manager
 
 
 # Base font sizes in points, authored at REFERENCE_FIGSIZE; scaled via _ts()/_fs().
 TYPE_SCALE = {
-    "title": 18,        # spec 16-18pt (kept at top of range)
-    "subtitle": 13,     # spec 12-13pt
-    "axis_label": 10,   # spec 9-10pt
-    "tick_label": 10,   # spec 9-10pt
-    "legend": 10,       # aligned to data-label tier
-    "value_label": 8,   # compact data labels
-    "caption": 8,       # spec source/footnote 8pt
-    "annotation": 10,   # axis-label tier, muted in-plot text
+    "title": 18,  # spec 16-18pt (kept at top of range)
+    "subtitle": 13,  # spec 12-13pt
+    "axis_label": 10,  # spec 9-10pt
+    "tick_label": 10,  # spec 9-10pt
+    "legend": 10,  # aligned to data-label tier
+    "value_label": 8,  # compact data labels
+    "caption": 8,  # spec source/footnote 8pt
+    "annotation": 10,  # axis-label tier, muted in-plot text
 }
 
 # Leading ratio applied to multi-line title/subtitle/caption text.
 LINESPACING = 1.25
+
+# Stable, named structural roles bound to palette[0..n] by index. Charts assign
+# series colors by role (via _series_color) rather than a bare index-cycling
+# `palette[idx % len(palette)]`, so color intent is explicit and overridable.
+ROLE_NAMES = ("primary", "secondary", "tertiary", "quaternary", "quinary")
 
 
 class StyleMixin:
@@ -78,7 +84,7 @@ class StyleMixin:
         theme = self.theme  # type: ignore[attr-defined]
 
         if theme == "consulting_light":
-            self.palette = ["#4C72B0", "#C44E52", "#55A868", "#8172B2", "#CCB974"]  # type: ignore[attr-defined]
+            self.palette = ["#64D2FF", "#0097A7", "#6FE8FF", "#00BCD4", "#4FC3F7"]  # type: ignore[attr-defined]
             self.grid_color = "#DDDDDD"  # type: ignore[attr-defined]
             self.bg_color = "#FFFFFF"  # type: ignore[attr-defined]
             dark = False
@@ -97,7 +103,9 @@ class StyleMixin:
 
         elif theme == "newsroom_dark":
             # Fixed: was [("#6FE8FF", "#0097A7")] — a tuple inside a list, not a flat palette.
-            self.palette = ["#64D2FF", "#0097A7", "#6FE8FF", "#00BCD4", "#4FC3F7"]  # type: ignore[attr-defined]
+
+            self.palette = ["#4C72B0", "#C44E52", "#55A868", "#8172B2", "#CCB974"]  # type: ignore[attr-defined]
+
             self.grid_color = "#444444"  # type: ignore[attr-defined]
             self.bg_color = "#0b1014"  # type: ignore[attr-defined]
             dark = True
@@ -130,6 +138,14 @@ class StyleMixin:
             self.color_annotation = "#555555"  # type: ignore[attr-defined]
             self.color_spine = "#000000"  # type: ignore[attr-defined]
 
+        # Bind ROLE_NAMES to this theme's palette by position, e.g.
+        # {"primary": palette[0], "secondary": palette[1], ...}. Consumed by
+        # _series_color() so series colors are explicit roles, not a bare cycle.
+        self.color_roles = {  # type: ignore[attr-defined]
+            name: self.palette[i % len(self.palette)]  # type: ignore[attr-defined]
+            for i, name in enumerate(ROLE_NAMES)
+        }
+
         dpi = getattr(self, "dpi", 150)
         self._rc.update(  # type: ignore[attr-defined]
             {
@@ -149,3 +165,21 @@ class StyleMixin:
                 "savefig.facecolor": self.bg_color,
             }
         )
+
+    def _series_color(self, idx: int, label: Optional[str] = None) -> str:
+        """Resolve a series' color: explicit ``color_map`` override, else by role.
+
+        ``self.color_map`` (an optional ``{label: role_or_hex}`` dict set at
+        construction) lets a caller pin a specific series to a named role
+        (e.g. ``{"Resorts": "primary"}``) or a literal hex code. Series without
+        an entry fall back to their positional role — ``ROLE_NAMES[idx]`` —
+        which keeps unconfigured charts visually identical to a plain
+        index-cycle while making the assignment an explicit, named mapping.
+        """
+        color_map: dict = getattr(self, "color_map", None) or {}
+        if label is not None and label in color_map:
+            value = color_map[label]
+            return self.color_roles.get(value, value)  # type: ignore[attr-defined]
+
+        role = ROLE_NAMES[idx % len(ROLE_NAMES)]
+        return self.color_roles.get(role, self.palette[idx % len(self.palette)])  # type: ignore[attr-defined]

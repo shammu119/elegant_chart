@@ -87,7 +87,7 @@ class BarMixin(DataMixin):
             if stacked or n_series == 1:
                 cumulative = np.zeros(len(base_positions))
                 for idx, (lbl, values) in enumerate(series_list):
-                    color = self.palette[idx % len(self.palette)]  # type: ignore[attr-defined]
+                    color = self._series_color(idx, lbl)  # type: ignore[attr-defined]
                     ax.bar(
                         base_positions,
                         values,
@@ -118,7 +118,7 @@ class BarMixin(DataMixin):
 
                 for idx, (lbl, values) in enumerate(series_list):
                     offset = offset_start + idx * single_width
-                    color = self.palette[idx % len(self.palette)]  # type: ignore[attr-defined]
+                    color = self._series_color(idx, lbl)  # type: ignore[attr-defined]
                     ax.bar(
                         base_positions + offset,
                         values,
@@ -207,7 +207,7 @@ class BarMixin(DataMixin):
             ax.set_xlim(_xlo, _xhi)
 
             # ── finalize + output ─────────────────────────────────────────
-            has_legend = any(lbl for lbl, _ in series_list)
+            has_legend = self._should_show_legend(series_list)
             self._finalize_and_output(
                 fig, ax,
                 rotation=rotation,

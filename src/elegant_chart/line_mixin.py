@@ -86,7 +86,7 @@ class LineMixin(DataMixin):
             )  # type: ignore[attr-defined]
 
             for idx, (lbl, values) in enumerate(series_list):
-                color = self.palette[idx % len(self.palette)]  # type: ignore[attr-defined]
+                color = self._series_color(idx, lbl)  # type: ignore[attr-defined]
                 if markers:
                     ax.plot(
                         x_positions,
@@ -192,7 +192,7 @@ class LineMixin(DataMixin):
                     )
 
             # ── finalize + output ─────────────────────────────────────────
-            has_legend = any(lbl for lbl, _ in series_list)
+            has_legend = self._should_show_legend(series_list)
             self._finalize_and_output(
                 fig,
                 ax,

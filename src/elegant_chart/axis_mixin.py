@@ -3,6 +3,7 @@ from typing import Optional, Sequence
 import textwrap
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib.ticker import FuncFormatter
 import matplotlib.dates as mdates
 
@@ -172,45 +173,52 @@ class AxisMixin:
         ax: plt.Axes,
         secondary: bool = False,
     ) -> list:
-        """Render y-axis tick labels just outside the plot area (Economist style).
+        """Render y-axis tick labels inside the plot area (Economist style).
 
         Works for both the primary (left) and secondary (right, secondary=True) y-axis so
-        that a twinx() secondary axis receives the same treatment. Labels sit beyond the
-        0/1 axes-fraction edge with a small gap, keeping them clear of lines/bars that
-        extend to the data x-limits.
+        that a twinx() secondary axis receives the same treatment. Each label sits just
+        inside its respective edge — right-aligned near the right edge for the framework's
+        default right-hand axis, left-aligned near the left edge otherwise — floating
+        just *above* its gridline. Keeping labels inside the plot frees the outer margin
+        entirely for data (see FigureMixin._finalize_axes' subplots_adjust).
+
+        The topmost visible label is flipped to ``va="top"`` (sitting just *below* its
+        gridline instead) so it doesn't float up past the plot top into the legend band.
 
         Returns the list of created Text artists so callers can measure their
-        rendered width (e.g. to position direct line-end labels beyond them).
+        rendered extent (e.g. to detect overlap with plotted data).
         """
         formatter = ax.yaxis.get_major_formatter()
         locator = ax.yaxis.get_major_locator()
         ymin, ymax = ax.get_ylim()
         ticks = locator.tick_values(ymin, ymax)
+        visible_ticks = [t for t in ticks if ymin <= t <= ymax]
+        top_tick = max(visible_ticks) if visible_ticks else None
 
         # x is in axes fraction (0=left edge, 1=right edge); y is in data coordinates.
-        pad = 0.02
-        x_pos = 1.0 + pad if secondary else -pad
-        h_align = "left" if secondary else "right"
+        pad = 0.01
+        x_pos = 1.0 - pad if secondary else pad
+        h_align = "right" if secondary else "left"
         transform = ax.get_yaxis_transform()
 
         texts = []
-        for tick_val in ticks:
-            if ymin <= tick_val <= ymax:
-                label_str = formatter(tick_val, 0)
-                texts.append(
-                    ax.text(
-                        x_pos,
-                        tick_val,
-                        label_str,
-                        transform=transform,
-                        ha=h_align,
-                        va="bottom",
-                        fontsize=self._ts("tick_label"),  # type: ignore[attr-defined]
-                        color=self.color_tick,  # type: ignore[attr-defined]
-                        zorder=5,
-                        clip_on=False,
-                    )
+        for tick_val in visible_ticks:
+            label_str = formatter(tick_val, 0)
+            va = "top" if tick_val == top_tick else "bottom"
+            texts.append(
+                ax.text(
+                    x_pos,
+                    tick_val,
+                    label_str,
+                    transform=transform,
+                    ha=h_align,
+                    va=va,
+                    fontsize=self._ts("tick_label"),  # type: ignore[attr-defined]
+                    color=self.color_tick,  # type: ignore[attr-defined]
+                    zorder=5,
+                    clip_on=False,
                 )
+            )
         return texts
 
     def _apply_numeric_x_axis(
@@ -264,3 +272,42 @@ class AxisMixin:
         ax.tick_params(axis="x", labelrotation=0)
         for lbl in ax.get_xticklabels():
             lbl.set_horizontalalignment("center")
+
+    def _draw_x_boundary_ticks(self, ax: plt.Axes) -> None:
+        """Draw short downward tick marks at the exact x-axis start and end.
+
+        Thinned categorical ticks, ``AutoDateLocator`` ticks, and step-based
+        numeric ticks all commonly land short of the true data bounds, leaving
+        the baseline's endpoints unmarked. These two manual segments — sized
+        and colored to match the regular x-ticks (``length=_px(3)``,
+        ``width=_px(0.5)``, set via ``ax.tick_params`` in bar/line mixins) —
+        sharply anchor the data range regardless of x-axis type. Called last
+        from ``_finalize_axes``, after layout has settled, so the axes height
+        used to convert the point-based tick length to an axes-fraction is final.
+        """
+        fig = ax.get_figure()
+        tick_len_frac = 0.02  # fallback if renderer geometry is unavailable
+        try:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            axes_height_px = ax.get_window_extent(renderer).height
+            tick_len_px = self._px(3) / 72.0 * fig.dpi  # type: ignore[attr-defined]
+            if axes_height_px > 0:
+                tick_len_frac = tick_len_px / axes_height_px
+        except Exception:
+            pass
+
+        # x: data coordinates; y: axes fraction (0 = baseline, going downward).
+        transform = ax.get_xaxis_transform()
+        for x in ax.get_xlim():
+            ax.add_line(
+                Line2D(
+                    [x, x],
+                    [0.0, -tick_len_frac],
+                    transform=transform,
+                    color=self.color_tick,  # type: ignore[attr-defined]
+                    linewidth=self._px(0.5),  # type: ignore[attr-defined]
+                    clip_on=False,
+                    zorder=3,
+                )
+            )

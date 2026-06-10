@@ -52,6 +52,7 @@ chart = ElegantChart(
     title="Maldives Occupancy Rates",
     subtitle="Occupancy % by accommodation type",
     caption="Source: MMA Statistics API\nData Visualized by Hassan Shammu",
+    theme="newsroom_dark",
 )
 
 chart.line(

@@ -15,23 +15,28 @@ We prioritize clean, readable, sans-serif typography:
 
 ### Minimalist Axes & Grids
 - **Spines**: The top and right spines are strictly removed to reduce "chart junk."
-- **Grid Lines**: Grids should be subtle and sit *behind* the data (`zorder=0`). We generally prefer horizontal-only grid lines.
+- **Grid Lines**: Grids should be subtle and sit *behind* the data (`zorder=0`). We generally prefer horizontal-only grid lines, drawn at `GRID_LINEWIDTH` (0.4pt, scaled).
+- **Baseline**: The x-axis spine (zero line) is solid and visually "grounded" — drawn `0.5pt` heavier than the gridlines (`GRID_LINEWIDTH + 0.5`), so it reads as the anchor of the chart.
+- **Boundary ticks**: The baseline carries explicit, visible downward tick marks at the absolute start and end of the x-axis range — independent of whatever interior ticks the locator chooses — to sharply anchor the data range. Interior x-ticks point downward (`direction="out"`).
 - **Ticks**: Ticks are minimal. Y-axis ticks are often hidden entirely (`length=0`) if value labels are used directly on the data elements.
 - **Labels**: Y-axis labels are frequently dropped in standard setups in favor of floating value labels above bars/points.
-- **Tick Labels**: y-axis tick labels sit on the inside the plot with a proper padding so that it does not overlap with bar/line inside the bar. The goal is to use  similiar style used in The Economist charts.
+- **Tick Labels**: y-axis tick labels sit *inside* the plot area, near the axis edge (right edge by default, mirroring `y_axis_side`), positioned just **above** their gridline — except the topmost label, which sits just **below** its gridline so it doesn't collide with the legend band above. This keeps the outer margin free for data, Economist-style.
 
 ### Color & Theming
 Palettes are highly intentional and bounded by themes:
 - **Light Themes**: `consulting_light`, `newsroom_muted`.
 - **Dark Themes**: `consulting_dark`, `newsroom_dark`.
 - **Gradients**: Certain themes leverage procedural gradients. For example, `newsroom_dark` applies a precise vertical gradient on bars (`#0077CC` to `#64D2FF`) for depth, replacing flat fills.
+- **Color roles**: Series colors are assigned via named, positional roles (`primary`, `secondary`, `tertiary`, `quaternary`, `quinary`), bound to `palette[0..n]` by `_apply_base_style` into `self.color_roles`. `bar()`/`line()` resolve each series' color through `StyleMixin._series_color(idx, label)` rather than indexing `palette` directly. An optional `color_map={"Series Label": "secondary"}` (role name or literal hex) on `ElegantChart(...)` pins specific series to specific roles/colors.
+- **Legend suppression**: A legend is drawn only when **two or more** series carry labels (`DataMixin._should_show_legend`). A single labeled series relies on the subtitle to name its metric instead.
 
 ### Layout & Sizing
 - **Canonical output**: Strictly **1080 × 1350 px** at **500 DPI** save output. This corresponds to `figsize=(2.16, 2.70)` inches (default). Never change this output resolution without an explicit design decision.
 - **Design reference canvas**: `REFERENCE_FIGSIZE = (3.6, 4.5)` inches. All font and geometry base values are authored at this size. When `figsize=(2.16, 2.70)`, `_figure_scale = 0.6` and `_fs()` automatically scales fonts down proportionally — no manual `font_scale` adjustment is needed.
 - **Font base sizes** (effective = base × 0.9 × 0.6 at default figsize): title 18 pt, subtitle 12 pt, axes label 11 pt, tick label 10 pt, caption 9 pt.
-- **Subplot margins**: left=0.08, right=0.92, top=0.76, bottom=0.24.
+- **Subplot margins**: left=0.04, right=0.97, top=0.76, bottom=0.24. Horizontal margins are kept tight because y-tick labels live inside the plot; top/bottom hold the title/subtitle/legend stack and the footer.
 - **X-axis padding**: 0.025 relative on the left, 0 on the right. Y-tick label pad: 0.
+- **Legend**: When shown, arranged as a 2-3 column horizontal grid (`ncol = min(3, n_series)`), left-aligned, positioned between the subtitle and the top of the plot area. Items wrap to a second row only after columns fill.
 - **Alignment**: Titles and subtitles are flush left. Captions sit flush bottom. Logos are strategically placed at the top right or bottom right without interfering with the title layout.
 
 ### Smart Data Representation
