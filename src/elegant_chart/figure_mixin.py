@@ -109,8 +109,9 @@ class FigureMixin:
             )
 
         # Draw inside tick labels only when requested; side mirrors y_axis_side.
+        inside_ytick_texts: list = []
         if self.y_tick_labels_inside:
-            self._draw_economist_ytick_labels(  # type: ignore[attr-defined]
+            inside_ytick_texts = self._draw_economist_ytick_labels(  # type: ignore[attr-defined]
                 ax, secondary=(self.y_axis_side == "right")
             )
 
@@ -124,6 +125,8 @@ class FigureMixin:
             top=0.76,
             bottom=0.24,
         )
+
+        self._auto_expand_right(ax, inside_ytick_texts)
 
     def _draw_annotations(self, ax: plt.Axes) -> None:
         """Draw sparse, muted-grey in-plot annotations declared via `annotations=[...]`.
@@ -167,6 +170,29 @@ class FigureMixin:
             if tight_bot_frac < 0.0:
                 extra = abs(tight_bot_frac) + 0.01
                 plt.subplots_adjust(bottom=min(fig.subplotpars.bottom + extra, 0.45))
+        except Exception:
+            pass
+
+    def _auto_expand_right(self, ax: plt.Axes, right_texts: list) -> None:
+        """Re-adjust right margin if inside y-tick labels bleed past the figure edge.
+
+        Scoped to ``right_texts`` (the labels floating beyond x=1.0 axes-fraction)
+        rather than the whole-figure tight bbox, so an oversized title or other
+        wide artist doesn't trigger an unrelated, oversized margin shrink.
+        """
+        if not right_texts:
+            return
+
+        fig = ax.get_figure()
+        try:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            fig_w_in = fig.get_size_inches()[0]
+            max_x1_in = max(t.get_window_extent(renderer).x1 for t in right_texts) / fig.dpi
+            tight_right_frac = max_x1_in / fig_w_in
+            if tight_right_frac > 1.0:
+                extra = tight_right_frac - 1.0 + 0.01
+                plt.subplots_adjust(right=max(fig.subplotpars.right - extra, 0.5))
         except Exception:
             pass
 

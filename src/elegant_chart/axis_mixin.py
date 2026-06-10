@@ -1,5 +1,5 @@
 # elegant_chart/axis_mixin.py
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence
 import textwrap
 import numpy as np
 import matplotlib.pyplot as plt
@@ -115,7 +115,7 @@ class AxisMixin:
 
         if axis == "x":
             ax.set_xticks(ticks)
-            ax.set_xticklabels(formatted, rotation=rotation)
+            ax.set_xticklabels(formatted, rotation=rotation, ha="center")
             if tick_padding is not None:
                 ax.tick_params(axis="x", which="major", pad=tick_padding)
         elif axis == "y":
@@ -171,11 +171,16 @@ class AxisMixin:
         self,
         ax: plt.Axes,
         secondary: bool = False,
-    ) -> None:
-        """Render y-axis tick labels floating inside the chart area (Economist style).
+    ) -> list:
+        """Render y-axis tick labels just outside the plot area (Economist style).
 
         Works for both the primary (left) and secondary (right, secondary=True) y-axis so
-        that a twinx() secondary axis receives the same inside-label treatment.
+        that a twinx() secondary axis receives the same treatment. Labels sit beyond the
+        0/1 axes-fraction edge with a small gap, keeping them clear of lines/bars that
+        extend to the data x-limits.
+
+        Returns the list of created Text artists so callers can measure their
+        rendered width (e.g. to position direct line-end labels beyond them).
         """
         formatter = ax.yaxis.get_major_formatter()
         locator = ax.yaxis.get_major_locator()
@@ -183,25 +188,30 @@ class AxisMixin:
         ticks = locator.tick_values(ymin, ymax)
 
         # x is in axes fraction (0=left edge, 1=right edge); y is in data coordinates.
-        x_pos = 1.0 if secondary else 0.0
-        h_align = "right" if secondary else "left"
+        pad = 0.02
+        x_pos = 1.0 + pad if secondary else -pad
+        h_align = "left" if secondary else "right"
         transform = ax.get_yaxis_transform()
 
+        texts = []
         for tick_val in ticks:
             if ymin <= tick_val <= ymax:
                 label_str = formatter(tick_val, 0)
-                ax.text(
-                    x_pos,
-                    tick_val,
-                    label_str,
-                    transform=transform,
-                    ha=h_align,
-                    va="bottom",
-                    fontsize=self._ts("tick_label"),  # type: ignore[attr-defined]
-                    color=self.color_tick,  # type: ignore[attr-defined]
-                    zorder=5,
-                    clip_on=False,
+                texts.append(
+                    ax.text(
+                        x_pos,
+                        tick_val,
+                        label_str,
+                        transform=transform,
+                        ha=h_align,
+                        va="bottom",
+                        fontsize=self._ts("tick_label"),  # type: ignore[attr-defined]
+                        color=self.color_tick,  # type: ignore[attr-defined]
+                        zorder=5,
+                        clip_on=False,
+                    )
                 )
+        return texts
 
     def _apply_numeric_x_axis(
         self,
@@ -249,4 +259,8 @@ class AxisMixin:
         formatter = mdates.AutoDateFormatter(locator)
         ax.xaxis.set_major_locator(locator)
         ax.xaxis.set_major_formatter(formatter)
-        ax.figure.autofmt_xdate()
+        # Keep labels horizontal and centered (Economist style); avoid
+        # autofmt_xdate(), which rotates and right-aligns datetime labels.
+        ax.tick_params(axis="x", labelrotation=0)
+        for lbl in ax.get_xticklabels():
+            lbl.set_horizontalalignment("center")

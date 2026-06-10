@@ -51,7 +51,6 @@ ys = {label: merged[label].tolist() for label in SERIES if label in merged.colum
 chart = ElegantChart(
     title="Occupancy Rates by Accommodation Type",
     subtitle="Source: Maldives Monetary Authority",
-    ylabel="Occupancy Rate",
 )
 
 chart.line(
