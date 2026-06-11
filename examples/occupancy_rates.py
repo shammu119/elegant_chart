@@ -1,7 +1,12 @@
-import os
-import sys
+# examples/occupancy_rates.py
+"""
+Live-data line() example — fetches accommodation occupancy rates from the
+MMA Statistics API and plots them as a multi-series line chart.
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+Self-contained: copy this whole file and run it as-is, with `elegant_chart`
+installed (`pip install -e .`). Requires network access; responses are
+cached under `data/` (see `elegant_chart.get_api_data`).
+"""
 
 import pandas as pd
 

@@ -522,7 +522,10 @@ chart.bar(
 
 ### Logo in the footer
 
-By default the chart looks for a logo at `~/logo/ce_logo.png`. Override with:
+By default (`logo_path=None`) the chart uses the bundled `elegant_chart` logo,
+shipped with the package. Override with a path of your own (resolved relative
+to your working directory, or `~`-expanded), or pass `logo_path=""` to disable
+the logo entirely:
 
 ```python
 chart = ElegantChart(
@@ -686,17 +689,20 @@ enable_logging(logging.DEBUG)
 
 ## 14. Font notes
 
-`elegant_chart` is designed to use Apple's **SF Pro** typeface. If the font files
-are not present, the library falls back to the system sans-serif and emits a
-`UserWarning`:
+`elegant_chart` is designed to use Apple's **SF Pro** typeface and ships its own
+copy of the SF Pro `.ttf`/`.otf` files as package data — no setup is required,
+and the warning below should not normally appear. If the bundled fonts are
+missing for some reason, the library falls back to the system sans-serif and
+emits a `UserWarning`:
 
 ```
 UserWarning: SF Pro fonts not found — falling back to system sans-serif.
 Place SF Pro .ttf/.otf files in a fonts/ directory to use them.
 ```
 
-To use SF Pro, place the font files in a `fonts/` directory relative to your
-working directory:
+To use a different (e.g. licensed) build of SF Pro, place the font files in a
+`fonts/` directory relative to your working directory — these take precedence
+over the bundled copies:
 
 ```
 your_project/

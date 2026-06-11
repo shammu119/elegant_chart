@@ -4,7 +4,6 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 from matplotlib import rc_context
 
@@ -52,43 +51,9 @@ class LineMixin(DataMixin):
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Create a line chart with categorical, numeric, or datetime x values."""
 
-        # ── DataFrame shortcut ────────────────────────────────────────────
-        if df is not None:
-            if x_col is None or y_cols is None:
-                raise ValueError("If df is provided, x_col and y_cols must be set")
-            x, ys, labels = self._from_dataframe(df, x_col, y_cols)
-
-        if x is None:
-            raise ValueError("x must be provided (or use df + x_col + y_cols)")
-        if ys is None:
-            raise ValueError("ys must be provided (or use df + x_col + y_cols)")
-
-        # ── validate ──────────────────────────────────────────────────────
-        self._validate_x_nonempty(x)
-        series_list = self._normalize_series(ys, labels)
-        self._validate_series_lengths(x, series_list)
-        self._validate_values(series_list)
-        self._compute_max_y_value(series_list)
-        self._store_series(x, series_list)
-
-        active_xlim = xlim if xlim is not None else self.xlim  # type: ignore[attr-defined]
-        x_plan = self._resolve_x_plan(x, active_xlim)
-
-        # Resolve x-axis knobs: explicit call argument wins, else instance default.
-        self._x_minor_ticks = x_minor_ticks if x_minor_ticks is not None else self.x_minor_ticks  # type: ignore[attr-defined]
-        self._x_upper_pad = x_upper_pad if x_upper_pad is not None else self.x_upper_pad  # type: ignore[attr-defined]
-        self._align_x_edges = align_x_edges if align_x_edges is not None else self.align_x_edges  # type: ignore[attr-defined]
-        self._x_xlim_explicit = active_xlim is not None  # type: ignore[attr-defined]
-
-        if x_plan.is_datetime:
-            x_kind = "datetime"
-        elif x_plan.is_categorical:
-            x_kind = "categorical"
-        else:
-            x_kind = "numeric"
-        logger.info(
-            "Rendering line chart %r: %d series x %d points, x-axis=%s",
-            self.title, len(series_list), len(x), x_kind,  # type: ignore[attr-defined]
+        x, series_list, x_plan, active_xlim = self._prepare_render(
+            "line", x, ys, labels, df, x_col, y_cols,
+            xlim, x_minor_ticks, x_upper_pad, align_x_edges,
         )
 
         # Resolve linewidth: None → auto-scale from reference; explicit float → honour as-is.
@@ -171,60 +136,18 @@ class LineMixin(DataMixin):
                 ax.set_xlim(float(x_positions.min()), float(x_positions.max()))
 
             # ── x axis ────────────────────────────────────────────────────
-            if x_plan.is_categorical:
-                step = self._resolve_x_step(
-                    x,
-                    x_tick_step=x_tick_step,
-                    max_x_ticks=max_x_ticks,
-                    auto_x_thinning=auto_x_thinning,
-                    rotation=rotation,
-                )
-                indices = np.arange(len(x))
-                visible_idx = indices[::step]
-                visible_lbls = self._compact_years(
-                    [str(x[i]) for i in visible_idx], enabled=compact_years
-                )
-                self._apply_tick_labels(  # type: ignore[attr-defined]
-                    ax,
-                    "x",
-                    ticks=visible_idx,
-                    labels=visible_lbls,
-                    rotation=rotation,
-                    max_label_width=max_label_width,
-                    width_strategy=label_width_strategy,
-                    tick_padding=tick_label_pad,
-                )
-
-            elif x_plan.is_datetime:
-                self._apply_datetime_x_axis(  # type: ignore[attr-defined]
-                    ax, x, max_x_ticks=max_x_ticks,
-                    data_bounds=self._x_data_bounds,  # type: ignore[attr-defined]
-                    minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
-                )
-
-            else:
-                self._apply_numeric_x_axis(  # type: ignore[attr-defined]
-                    ax,
-                    x_values=x_positions,
-                    x_tick_step=x_tick_step,
-                    max_x_ticks=max_x_ticks,
-                    x_formatter=x_formatter,
-                    minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
-                )
-                if x_plan.use_numeric_axis_with_labels and x_plan.x_tick_labels_forced:
-                    tick_lbls = self._compact_years(
-                        x_plan.x_tick_labels_forced, enabled=compact_years
-                    )
-                    self._apply_tick_labels(  # type: ignore[attr-defined]
-                        ax,
-                        "x",
-                        ticks=x_positions,
-                        labels=tick_lbls,
-                        rotation=rotation,
-                        max_label_width=max_label_width,
-                        width_strategy=label_width_strategy,
-                        tick_padding=tick_label_pad,
-                    )
+            self._dispatch_x_axis(
+                ax, x, x_plan,
+                rotation=rotation,
+                compact_years=compact_years,
+                x_tick_step=x_tick_step,
+                max_x_ticks=max_x_ticks,
+                auto_x_thinning=auto_x_thinning,
+                max_label_width=max_label_width,
+                label_width_strategy=label_width_strategy,
+                tick_label_pad=tick_label_pad,
+                x_formatter=x_formatter,
+            )
 
             # ── finalize + output ─────────────────────────────────────────
             has_legend = self._should_show_legend(series_list)

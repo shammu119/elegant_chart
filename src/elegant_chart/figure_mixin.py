@@ -5,6 +5,7 @@ from typing import Any, Optional, Tuple
 import matplotlib.pyplot as plt
 
 from ._logging import logger
+from ._paths import DEFAULT_LOGO_PATH
 from .style_mixin import LINESPACING
 
 # Hairline weight for horizontal gridlines, in design points (scaled via _px()).
@@ -329,34 +330,42 @@ class FigureMixin:
                 linespacing=LINESPACING,
             )
 
-        if self.logo_path:
+        if self.logo_path is None:
+            # Default: bundled package logo, resolved independent of CWD.
+            path = str(DEFAULT_LOGO_PATH)
+        elif self.logo_path:
+            # User-supplied override: resolve relative to the working directory.
             path = os.path.expanduser(self.logo_path)
-            if not os.path.exists(path):
-                return
+        else:
+            # Falsy (e.g. "") — logo explicitly disabled.
+            return
 
-            try:
-                img = plt.imread(path)
-            except Exception:
-                return
+        if not os.path.exists(path):
+            return
 
-            h_img, w_img = img.shape[:2]
-            if h_img <= 0:
-                return
+        try:
+            img = plt.imread(path)
+        except Exception:
+            return
 
-            aspect = w_img / h_img
-            logo_height = self.logo_height_rel * 0.65
+        h_img, w_img = img.shape[:2]
+        if h_img <= 0:
+            return
 
-            fig_w, fig_h = fig.get_size_inches()
-            fig_aspect = fig_w / fig_h
-            logo_width = logo_height * aspect / fig_aspect
+        aspect = w_img / h_img
+        logo_height = self.logo_height_rel * 0.65
 
-            # Right-aligned to subplot right; top flush with baseline rule
-            left = sp.right - logo_width
-            bottom = footer_line_y - logo_height
+        fig_w, fig_h = fig.get_size_inches()
+        fig_aspect = fig_w / fig_h
+        logo_width = logo_height * aspect / fig_aspect
 
-            ax_logo = fig.add_axes([left, bottom, logo_width, logo_height])
-            ax_logo.imshow(img)
-            ax_logo.axis("off")
+        # Right-aligned to subplot right; top flush with baseline rule
+        left = sp.right - logo_width
+        bottom = footer_line_y - logo_height
+
+        ax_logo = fig.add_axes([left, bottom, logo_width, logo_height])
+        ax_logo.imshow(img)
+        ax_logo.axis("off")
 
     def save_figure(
         self,

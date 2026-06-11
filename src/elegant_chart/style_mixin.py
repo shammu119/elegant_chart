@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import warnings
-from typing import Optional
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 from matplotlib import font_manager
+
+from ._paths import BUNDLED_FONT_FILES, FONTS_DIR
 
 
 # Base font sizes in points, authored at REFERENCE_FIGSIZE; scaled via _ts()/_fs().
@@ -28,6 +32,54 @@ LINESPACING = 1.25
 ROLE_NAMES = ("primary", "secondary", "tertiary", "quaternary", "quinary")
 
 
+@dataclass(frozen=True)
+class Theme:
+    """A named visual theme: series palette plus canvas colors.
+
+    ``dark`` selects the complementary set of text/axis/spine colors applied
+    in :meth:`StyleMixin._apply_base_style`.
+    """
+
+    palette: Tuple[str, ...]
+    grid_color: str
+    bg_color: str
+    dark: bool
+
+
+# Registered themes, keyed by the name passed to ``ElegantChart(theme=...)``.
+# Adding a theme is a one-entry addition here — no branching logic to edit.
+THEMES: Dict[str, Theme] = {
+    "consulting_light": Theme(
+        palette=("#64D2FF", "#0097A7", "#6FE8FF", "#00BCD4", "#4FC3F7"),
+        grid_color="#DDDDDD",
+        bg_color="#FFFFFF",
+        dark=False,
+    ),
+    "newsroom_muted": Theme(
+        palette=("#3B5C92", "#8C4A5A", "#4E7B63", "#9467BD", "#B5893F"),
+        grid_color="#E0E0E0",
+        bg_color="#FAFAFA",
+        dark=False,
+    ),
+    "consulting_dark": Theme(
+        palette=("#8FB3FF", "#FF8C99", "#7AD8A0", "#B4A5FF", "#F5D27C"),
+        grid_color="#333333",
+        bg_color="#111827",
+        dark=True,
+    ),
+    "newsroom_dark": Theme(
+        # Fixed: was [("#6FE8FF", "#0097A7")] — a tuple inside a list, not a flat palette.
+        palette=("#4C72B0", "#C44E52", "#55A868", "#8172B2", "#CCB974"),
+        grid_color="#444444",
+        bg_color="#0b1014",
+        dark=True,
+    ),
+}
+
+# Fallback theme for an unrecognised ``theme=`` name.
+DEFAULT_THEME = "consulting_light"
+
+
 class StyleMixin:
     def _fs(self, base: float) -> float:
         """Font size in points, scaled by font_scale and capped at the reference figure size."""
@@ -42,17 +94,22 @@ class StyleMixin:
         return base * self._figure_scale  # type: ignore[attr-defined]
 
     def _register_fonts(self) -> None:
-        """Try to register bundled SF Pro fonts; silently skip on missing files."""
-        candidates = [
-            "fonts/SF-Pro.ttf",
-            "fonts/SF-Pro-Display-Light.otf",
-            "fonts/SF-Pro-Display-Medium.otf",
-            "fonts/SF-Pro-Text-Bold.otf",
-        ]
+        """Register the bundled SF Pro fonts, plus any project-local overrides.
+
+        Bundled fonts are resolved relative to the installed package
+        (``elegant_chart/assets/fonts/``) so they are found regardless of the
+        caller's working directory. A ``fonts/`` directory relative to the
+        current working directory is also checked, letting a project supply
+        its own SF Pro files (e.g. licensed copies) without rebuilding the
+        package — those take precedence because they are registered last.
+        """
+        candidates = [FONTS_DIR / name for name in BUNDLED_FONT_FILES]
+        candidates += [Path("fonts") / name for name in BUNDLED_FONT_FILES]
+
         for path in candidates:
             try:
-                font_manager.fontManager.addfont(path)
-            except OSError:
+                font_manager.fontManager.addfont(str(path))
+            except (OSError, FileNotFoundError):
                 pass
 
     def _configure_fonts(self) -> None:
@@ -83,39 +140,20 @@ class StyleMixin:
 
         theme = self.theme  # type: ignore[attr-defined]
 
-        if theme == "consulting_light":
-            self.palette = ["#64D2FF", "#0097A7", "#6FE8FF", "#00BCD4", "#4FC3F7"]  # type: ignore[attr-defined]
-            self.grid_color = "#DDDDDD"  # type: ignore[attr-defined]
-            self.bg_color = "#FFFFFF"  # type: ignore[attr-defined]
-            dark = False
+        theme_def = THEMES.get(theme)
+        if theme_def is None:
+            warnings.warn(
+                f"Unknown theme {theme!r} — falling back to {DEFAULT_THEME!r}. "
+                f"Available themes: {', '.join(sorted(THEMES))}.",
+                UserWarning,
+                stacklevel=3,
+            )
+            theme_def = THEMES[DEFAULT_THEME]
 
-        elif theme == "newsroom_muted":
-            self.palette = ["#3B5C92", "#8C4A5A", "#4E7B63", "#9467BD", "#B5893F"]  # type: ignore[attr-defined]
-            self.grid_color = "#E0E0E0"  # type: ignore[attr-defined]
-            self.bg_color = "#FAFAFA"  # type: ignore[attr-defined]
-            dark = False
-
-        elif theme == "consulting_dark":
-            self.palette = ["#8FB3FF", "#FF8C99", "#7AD8A0", "#B4A5FF", "#F5D27C"]  # type: ignore[attr-defined]
-            self.grid_color = "#333333"  # type: ignore[attr-defined]
-            self.bg_color = "#111827"  # type: ignore[attr-defined]
-            dark = True
-
-        elif theme == "newsroom_dark":
-            # Fixed: was [("#6FE8FF", "#0097A7")] — a tuple inside a list, not a flat palette.
-
-            self.palette = ["#4C72B0", "#C44E52", "#55A868", "#8172B2", "#CCB974"]  # type: ignore[attr-defined]
-
-            self.grid_color = "#444444"  # type: ignore[attr-defined]
-            self.bg_color = "#0b1014"  # type: ignore[attr-defined]
-            dark = True
-
-        else:
-            # Unknown theme — fall back to consulting_light
-            self.palette = ["#4C72B0", "#C44E52", "#55A868", "#8172B2", "#CCB974"]  # type: ignore[attr-defined]
-            self.grid_color = "#DDDDDD"  # type: ignore[attr-defined]
-            self.bg_color = "#FFFFFF"  # type: ignore[attr-defined]
-            dark = False
+        self.palette = list(theme_def.palette)  # type: ignore[attr-defined]
+        self.grid_color = theme_def.grid_color  # type: ignore[attr-defined]
+        self.bg_color = theme_def.bg_color  # type: ignore[attr-defined]
+        dark = theme_def.dark
 
         if dark:
             self.color_axes_edge = "#f0f0f0"  # type: ignore[attr-defined]

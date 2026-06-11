@@ -29,9 +29,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Optional, Union
 
 import pandas as pd
 
+# Default cache directory, relative to the *caller's* working directory — this
+# is a local data cache, not a package asset, so it intentionally lives next to
+# the invoking script. Override per-call via ``get_series_df(..., cache_dir=...)``
+# or for the whole process via the ``MMA_CACHE_DIR`` environment variable.
 CACHE_DIR = Path("data")
 
 
@@ -54,8 +59,18 @@ def _load_token() -> str:
     )
 
 
-def _series_cache_path(series_id: int) -> Path:
-    return CACHE_DIR / f"series_{series_id}.xlsx"
+def _resolve_cache_dir(cache_dir: Optional[Union[str, Path]]) -> Path:
+    """Resolve the cache directory: explicit arg > MMA_CACHE_DIR env var > CACHE_DIR."""
+    if cache_dir is not None:
+        return Path(cache_dir)
+    env_dir = os.environ.get("MMA_CACHE_DIR")
+    if env_dir:
+        return Path(env_dir)
+    return CACHE_DIR
+
+
+def _series_cache_path(series_id: int, cache_dir: Optional[Union[str, Path]] = None) -> Path:
+    return _resolve_cache_dir(cache_dir) / f"series_{series_id}.xlsx"
 
 
 def _load_cached_series_df(path: Path) -> pd.DataFrame:
@@ -83,13 +98,17 @@ def _save_cached_series_df(path: Path, df: pd.DataFrame) -> None:
     df.to_excel(path, index=False, engine="openpyxl")
 
 
-def get_series_df(series_id: int, timeout: int = 30) -> pd.DataFrame:
+def get_series_df(
+    series_id: int,
+    timeout: int = 30,
+    cache_dir: Optional[Union[str, Path]] = None,
+) -> pd.DataFrame:
     """
     Fetch a single time series from the MMA Statistics database.
 
-    If a cached Excel file exists at ``data/series_<id>.xlsx``, it is loaded
-    instead of calling the API. When the file is missing, the API is fetched
-    and the result is saved to the cache folder.
+    If a cached Excel file exists at ``<cache_dir>/series_<id>.xlsx``, it is
+    loaded instead of calling the API. When the file is missing, the API is
+    fetched and the result is saved to the cache folder.
 
     Parameters
     ----------
@@ -97,6 +116,10 @@ def get_series_df(series_id: int, timeout: int = 30) -> pd.DataFrame:
         The numeric series identifier from ``database.mma.gov.mv``.
     timeout:
         Request timeout in seconds (default 30).
+    cache_dir:
+        Directory for cached Excel files. Defaults to the ``MMA_CACHE_DIR``
+        environment variable if set, else ``"data"`` relative to the current
+        working directory.
 
     Returns
     -------
@@ -104,7 +127,7 @@ def get_series_df(series_id: int, timeout: int = 30) -> pd.DataFrame:
         A DataFrame of the series ``data`` records, or an empty DataFrame if
         the series was not found.
     """
-    cached_path = _series_cache_path(series_id)
+    cached_path = _series_cache_path(series_id, cache_dir)
     if cached_path.exists():
         return _load_cached_series_df(cached_path)
 

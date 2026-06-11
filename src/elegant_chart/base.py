@@ -34,7 +34,10 @@ Axis / tick
                                     right-align the last, instead of centering)
 
 Logo / footer
-    logo_path, logo_height_rel, logo_margin_rel
+    logo_path, logo_height_rel, logo_margin_rel — logo_path=None (default) uses
+    the bundled elegant_chart logo (see _paths.DEFAULT_LOGO_PATH); pass a path
+    (absolute, ``~``-relative, or relative to the working directory) to use a
+    different image, or "" to disable the logo entirely.
 
 Internal (set once by _apply_base_style)
     _rc                          — dict[str, Any]   (matplotlib rcParams overlay)
@@ -99,7 +102,7 @@ class ChartBase:
         x_minor_ticks: Optional[int] = None,
         x_upper_pad: Optional[float] = None,
         align_x_edges: bool = True,
-        logo_path: Optional[str] = "logo/ce_logo.png",
+        logo_path: Optional[str] = None,
         logo_height_rel: float = 0.12,
         logo_margin_rel: float = 0.02,
         show_footer: bool = True,

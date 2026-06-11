@@ -205,6 +205,158 @@ class DataMixin:
             x_tick_labels_forced=x_tick_labels_forced,
         )
 
+    # ── shared bar()/line() setup ───────────────────────────────────────────
+
+    def _prepare_render(
+        self,
+        chart_kind: str,
+        x: Optional[Sequence[Any]],
+        ys: Optional[Union[Sequence[Any], Dict[str, Sequence[Any]]]],
+        labels: Optional[Sequence[Optional[str]]],
+        df: Optional[pd.DataFrame],
+        x_col: Optional[str],
+        y_cols: Optional[Union[str, Sequence[str]]],
+        xlim: Optional[Tuple[float, float]],
+        x_minor_ticks: Optional[int],
+        x_upper_pad: Optional[float],
+        align_x_edges: Optional[bool],
+    ) -> Tuple[
+        Sequence[Any],
+        List[Tuple[Optional[str], List[float]]],
+        "XPlan",
+        Optional[Tuple[float, float]],
+    ]:
+        """Shared validation/setup for :meth:`~.bar_mixin.BarMixin.bar` and
+        :meth:`~.line_mixin.LineMixin.line`.
+
+        Resolves the DataFrame shortcut, validates and normalises ``x``/``ys``,
+        classifies the x-axis (:class:`XPlan`), and resolves the per-call
+        x-axis knob overrides (``_x_minor_ticks``, ``_x_upper_pad``,
+        ``_align_x_edges``, ``_x_xlim_explicit``) onto ``self`` for
+        :class:`~.axis_mixin.AxisMixin`/:class:`~.figure_mixin.FigureMixin` to
+        read during ``_finalize_axes``.
+
+        Returns ``(x, series_list, x_plan, active_xlim)``.
+        """
+        # ── DataFrame shortcut ────────────────────────────────────────────
+        if df is not None:
+            if x_col is None or y_cols is None:
+                raise ValueError("If df is provided, x_col and y_cols must be set")
+            x, ys, labels = self._from_dataframe(df, x_col, y_cols)
+
+        if x is None:
+            raise ValueError("x must be provided (or use df + x_col + y_cols)")
+        if ys is None:
+            raise ValueError("ys must be provided (or use df + x_col + y_cols)")
+
+        # ── validate ──────────────────────────────────────────────────────
+        self._validate_x_nonempty(x)
+        series_list = self._normalize_series(ys, labels)
+        self._validate_series_lengths(x, series_list)
+        self._validate_values(series_list)
+        self._compute_max_y_value(series_list)
+        self._store_series(x, series_list)
+
+        active_xlim = xlim if xlim is not None else self.xlim  # type: ignore[attr-defined]
+        x_plan = self._resolve_x_plan(x, active_xlim)
+
+        # Resolve x-axis knobs: explicit call argument wins, else instance default.
+        self._x_minor_ticks = x_minor_ticks if x_minor_ticks is not None else self.x_minor_ticks  # type: ignore[attr-defined]
+        self._x_upper_pad = x_upper_pad if x_upper_pad is not None else self.x_upper_pad  # type: ignore[attr-defined]
+        self._align_x_edges = align_x_edges if align_x_edges is not None else self.align_x_edges  # type: ignore[attr-defined]
+        self._x_xlim_explicit = active_xlim is not None  # type: ignore[attr-defined]
+
+        if x_plan.is_datetime:
+            x_kind = "datetime"
+        elif x_plan.is_categorical:
+            x_kind = "categorical"
+        else:
+            x_kind = "numeric"
+        logger.info(
+            "Rendering %s chart %r: %d series x %d points, x-axis=%s",
+            chart_kind, self.title, len(series_list), len(x), x_kind,  # type: ignore[attr-defined]
+        )
+
+        return x, series_list, x_plan, active_xlim
+
+    # ── shared x-axis dispatch ──────────────────────────────────────────────
+
+    def _dispatch_x_axis(
+        self,
+        ax: Any,
+        x: Sequence[Any],
+        x_plan: "XPlan",
+        rotation: float,
+        compact_years: bool,
+        x_tick_step: Optional[int],
+        max_x_ticks: Optional[int],
+        auto_x_thinning: Optional[bool],
+        max_label_width: Optional[int],
+        label_width_strategy: str,
+        tick_label_pad: Optional[float],
+        x_formatter: Optional[FormatterSpec],
+    ) -> None:
+        """Render x-axis ticks/labels for categorical, datetime, or numeric axes.
+
+        Identical dispatch used by :meth:`~.bar_mixin.BarMixin.bar` and
+        :meth:`~.line_mixin.LineMixin.line` once each has resolved its own
+        plotted positions into ``x_plan.positions``. Reads
+        ``self._x_data_bounds`` and ``self._x_minor_ticks``, both set by
+        :meth:`_prepare_render`.
+        """
+        if x_plan.is_categorical:
+            step = self._resolve_x_step(
+                x,
+                x_tick_step=x_tick_step,
+                max_x_ticks=max_x_ticks,
+                auto_x_thinning=auto_x_thinning,
+                rotation=rotation,
+            )
+            indices = np.arange(len(x))
+            visible_idx = indices[::step]
+            visible_lbls = self._compact_years(
+                [str(x[i]) for i in visible_idx], enabled=compact_years
+            )
+            self._apply_tick_labels(  # type: ignore[attr-defined]
+                ax, "x",
+                ticks=visible_idx,
+                labels=visible_lbls,
+                rotation=rotation,
+                max_label_width=max_label_width,
+                width_strategy=label_width_strategy,
+                tick_padding=tick_label_pad,
+            )
+
+        elif x_plan.is_datetime:
+            self._apply_datetime_x_axis(  # type: ignore[attr-defined]
+                ax, x, max_x_ticks=max_x_ticks,
+                data_bounds=self._x_data_bounds,  # type: ignore[attr-defined]
+                minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
+            )
+
+        else:
+            self._apply_numeric_x_axis(  # type: ignore[attr-defined]
+                ax,
+                x_values=x_plan.positions,
+                x_tick_step=x_tick_step,
+                max_x_ticks=max_x_ticks,
+                x_formatter=x_formatter,
+                minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
+            )
+            if x_plan.use_numeric_axis_with_labels and x_plan.x_tick_labels_forced:
+                tick_lbls = self._compact_years(
+                    x_plan.x_tick_labels_forced, enabled=compact_years
+                )
+                self._apply_tick_labels(  # type: ignore[attr-defined]
+                    ax, "x",
+                    ticks=x_plan.positions,
+                    labels=tick_lbls,
+                    rotation=rotation,
+                    max_label_width=max_label_width,
+                    width_strategy=label_width_strategy,
+                    tick_padding=tick_label_pad,
+                )
+
     # ── tick-label helpers ────────────────────────────────────────────────
 
     @staticmethod

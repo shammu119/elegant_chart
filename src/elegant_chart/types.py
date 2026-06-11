@@ -1,4 +1,4 @@
-# chart_types.py
+# elegant_chart/types.py
 from typing import Callable, Tuple, Union, Optional
 
 FormatterCallable = Callable[[float, int], str]
