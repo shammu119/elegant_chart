@@ -25,6 +25,13 @@ Axis / tick
     auto_x_thinning              — bool
     y_formatter                  — FormatterSpec
     xlim, ylim                   — (float, float) | None
+    x_minor_ticks                — int | None  (minor ticks per major interval;
+                                    1 == a single midpoint tick, e.g. mid-year)
+    x_upper_pad                  — float | None  (relative-to-data-span pad added
+                                    to the upper xlim; None == auto-measured from
+                                    the rendered inside y-tick label widths)
+    align_x_edges                — bool  (left-align the first x tick label and
+                                    right-align the last, instead of centering)
 
 Logo / footer
     logo_path, logo_height_rel, logo_margin_rel
@@ -45,6 +52,14 @@ Norm-max formatter scratch
 Last-render cache (written by bar/line, read by export_data)
     _last_x                      — list | None
     _last_series_list            — list[tuple[str|None, list[float]]] | None
+
+Last-render x-axis state (written by bar/line, read by AxisMixin/FigureMixin
+during _finalize_axes)
+    _x_data_bounds               — (float, float) | None  (numeric position
+                                    min/max of the actual data, pre-padding)
+    _x_minor_ticks               — int | None
+    _x_upper_pad                 — float | None
+    _align_x_edges                — bool
 """
 
 from __future__ import annotations
@@ -81,6 +96,9 @@ class ChartBase:
         y_formatter: FormatterSpec = "compact",
         xlim: Optional[Tuple[float, float]] = None,
         ylim: Optional[Tuple[float, float]] = None,
+        x_minor_ticks: Optional[int] = None,
+        x_upper_pad: Optional[float] = None,
+        align_x_edges: bool = True,
         logo_path: Optional[str] = "logo/ce_logo.png",
         logo_height_rel: float = 0.12,
         logo_margin_rel: float = 0.02,
@@ -120,6 +138,10 @@ class ChartBase:
         self.xlim = xlim
         self.ylim = ylim
 
+        self.x_minor_ticks = x_minor_ticks
+        self.x_upper_pad = x_upper_pad
+        self.align_x_edges = align_x_edges
+
         # ── logo / footer ──────────────────────────────────────────────────
         self.logo_path = logo_path
         self.logo_height_rel = logo_height_rel
@@ -137,6 +159,14 @@ class ChartBase:
         # ── last-render cache (populated by bar/line, read by export_data) ─
         self._last_x: Optional[list] = None
         self._last_series_list: Optional[list] = None
+
+        # ── last-render x-axis state (populated by bar/line, read by
+        # AxisMixin/FigureMixin during _finalize_axes) ─────────────────────
+        self._x_data_bounds: Optional[Tuple[float, float]] = None
+        self._x_minor_ticks: Optional[int] = self.x_minor_ticks
+        self._x_upper_pad: Optional[float] = self.x_upper_pad
+        self._align_x_edges: bool = self.align_x_edges
+        self._x_xlim_explicit: bool = False
 
         # Populate palette, colors, fonts, and rc overlay
         self._apply_base_style()  # type: ignore[attr-defined]  # provided by StyleMixin

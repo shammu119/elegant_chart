@@ -1,12 +1,14 @@
 # elegant_chart/axis_mixin.py
-from typing import Optional, Sequence
 import textwrap
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.ticker import FuncFormatter
-import matplotlib.dates as mdates
+from typing import List, Optional, Sequence, Tuple
 
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.lines import Line2D
+from matplotlib.ticker import AutoMinorLocator, FixedLocator, FuncFormatter
+
+from ._logging import logger
 from .types import FormatterSpec, YFormatter
 
 
@@ -228,6 +230,7 @@ class AxisMixin:
         x_tick_step: Optional[float] = None,
         max_x_ticks: Optional[int] = None,
         x_formatter: Optional[FormatterSpec] = None,
+        minor_ticks: Optional[int] = None,
     ) -> None:
         if x_tick_step is None:
             x_tick_step = self.x_tick_step
@@ -257,21 +260,96 @@ class AxisMixin:
                 self._build_formatter(x_formatter, default="plain")
             )
 
+        if minor_ticks:
+            # AutoMinorLocator(n) places (n-1) evenly-spaced minor ticks between
+            # each pair of major ticks, so minor_ticks=1 gives a single midpoint tick.
+            ax.xaxis.set_minor_locator(AutoMinorLocator(minor_ticks + 1))
+            ax.tick_params(
+                axis="x", which="minor", direction="out",
+                length=self._px(1.5), width=self._px(0.4),  # type: ignore[attr-defined]
+            )
+
     def _apply_datetime_x_axis(
         self,
         ax: plt.Axes,
         x_values,
         max_x_ticks: Optional[int] = None,
+        data_bounds: Optional[Tuple[float, float]] = None,
+        minor_ticks: Optional[int] = None,
     ) -> None:
-        locator = mdates.AutoDateLocator(minticks=3, maxticks=max_x_ticks or 7)
-        formatter = mdates.AutoDateFormatter(locator)
-        ax.xaxis.set_major_locator(locator)
+        auto_locator = mdates.AutoDateLocator(minticks=3, maxticks=max_x_ticks or 7)
+        formatter = mdates.AutoDateFormatter(auto_locator)
         ax.xaxis.set_major_formatter(formatter)
-        # Keep labels horizontal and centered (Economist style); avoid
-        # autofmt_xdate(), which rotates and right-aligns datetime labels.
+
+        if data_bounds is not None:
+            lo, hi = data_bounds
+            # Take the auto cadence's interior ticks, drop any that crowd the
+            # endpoints, then pin the exact data bounds as the first/last
+            # major ticks so the axis is always labeled at its true range.
+            # AutoDateLocator.tick_values() requires datetime bounds (it
+            # internally diffs them with relativedelta), not raw date2num
+            # floats — convert, then map the resulting ticks back to floats.
+            dmin, dmax = mdates.num2date(lo), mdates.num2date(hi)
+            interior = [
+                t for t in mdates.date2num(auto_locator.tick_values(dmin, dmax))
+                if lo < t < hi
+            ]
+            span = hi - lo
+            if span > 0:
+                edge_margin = span * 0.04
+                interior = [
+                    t for t in interior
+                    if (t - lo) > edge_margin and (hi - t) > edge_margin
+                ]
+            majors: List[float] = sorted({lo, *interior, hi})
+            ax.xaxis.set_major_locator(FixedLocator(majors))
+            logger.debug("Datetime major ticks (incl. endpoints): %s", majors)
+
+            if minor_ticks:
+                minors: List[float] = []
+                for a, b in zip(majors[:-1], majors[1:]):
+                    step = (b - a) / (minor_ticks + 1)
+                    minors.extend(a + step * i for i in range(1, minor_ticks + 1))
+                ax.xaxis.set_minor_locator(FixedLocator(minors))
+                ax.tick_params(
+                    axis="x", which="minor", direction="out",
+                    length=self._px(1.5), width=self._px(0.4),  # type: ignore[attr-defined]
+                )
+        else:
+            ax.xaxis.set_major_locator(auto_locator)
+
+        # Keep labels horizontal (Economist style); avoid autofmt_xdate(),
+        # which rotates and right-aligns datetime labels. Per-label
+        # left/center/right alignment of the edge labels is handled by
+        # _align_x_edge_labels() once layout has settled.
         ax.tick_params(axis="x", labelrotation=0)
-        for lbl in ax.get_xticklabels():
-            lbl.set_horizontalalignment("center")
+
+    def _align_x_edge_labels(self, ax: plt.Axes) -> None:
+        """Left-align the first major x-tick label, right-align the last.
+
+        The default ``ha="center"`` works for interior ticks but lets the
+        first label bleed past the left edge of the plot (and the last
+        bleed past the right). Anchoring the leftmost visible major tick's
+        label to its left edge — and the rightmost to its right edge — keeps
+        every label within the plot area, which matters most once
+        ``_apply_datetime_x_axis``/``_apply_numeric_x_axis`` pin major ticks
+        at the exact data bounds.
+        """
+        xlim = ax.get_xlim()
+        lo, hi = min(xlim), max(xlim)
+        ticks = list(ax.xaxis.get_majorticklocs())
+        visible = [t for t in ticks if lo - 1e-9 <= t <= hi + 1e-9]
+        if len(visible) < 2:
+            return
+
+        tick_min, tick_max = min(visible), max(visible)
+        for lbl, tick in zip(ax.get_xticklabels(), ticks):
+            if tick == tick_min:
+                lbl.set_horizontalalignment("left")
+            elif tick == tick_max:
+                lbl.set_horizontalalignment("right")
+            else:
+                lbl.set_horizontalalignment("center")
 
     def _draw_x_boundary_ticks(self, ax: plt.Axes) -> None:
         """Draw short downward tick marks at the exact x-axis start and end.
@@ -295,11 +373,17 @@ class AxisMixin:
             if axes_height_px > 0:
                 tick_len_frac = tick_len_px / axes_height_px
         except Exception:
-            pass
+            logger.debug("_draw_x_boundary_ticks geometry step failed", exc_info=True)
+
+        # Anchor at the *data* bounds, not ax.get_xlim() — the upper xlim is
+        # padded (see FigureMixin._finalize_axes) to clear the inside y-tick
+        # labels, so the right boundary tick should sit at the true last
+        # data point rather than out in the empty padding.
+        bounds = getattr(self, "_x_data_bounds", None) or ax.get_xlim()
 
         # x: data coordinates; y: axes fraction (0 = baseline, going downward).
         transform = ax.get_xaxis_transform()
-        for x in ax.get_xlim():
+        for x in bounds:
             ax.add_line(
                 Line2D(
                     [x, x],

@@ -1,8 +1,10 @@
 # elegant_chart/figure_mixin.py
-from typing import Any, Optional, Tuple
 import os
+from typing import Any, Optional, Tuple
+
 import matplotlib.pyplot as plt
 
+from ._logging import logger
 from .style_mixin import LINESPACING
 
 # Hairline weight for horizontal gridlines, in design points (scaled via _px()).
@@ -57,8 +59,10 @@ class FigureMixin:
         ax.spines["bottom"].set_color(self.color_spine)
         # Baseline is grounded: 0.5pt heavier than the gridlines it anchors.
         ax.spines["bottom"].set_linewidth(self._px(GRID_LINEWIDTH + 0.5))
-        # Spine spans exactly the data x-range (xlim is set to data bounds in bar/line mixin).
-        _sp_lo, _sp_hi = ax.get_xlim()
+        # Spine spans exactly the data x-range — not ax.get_xlim(), which may
+        # carry extra upper padding (see _apply_x_upper_padding) so the last
+        # data point's label can clear the inside y-tick labels.
+        _sp_lo, _sp_hi = getattr(self, "_x_data_bounds", None) or ax.get_xlim()
         ax.spines["bottom"].set_bounds(_sp_lo, _sp_hi)
 
         if self.show_y_spine and self.y_axis_side in ("left", "right"):
@@ -145,6 +149,15 @@ class FigureMixin:
 
         self._auto_expand_right(ax, inside_ytick_texts)
 
+        # Pad the upper x-limit so the rightmost data point / tick label
+        # clears the inside y-tick labels living near the right edge.
+        self._apply_x_upper_padding(ax, inside_ytick_texts)
+
+        # Edge labels: left-align the first major tick, right-align the
+        # last, now that xlim/padding and layout have both settled.
+        if self._align_x_edges:  # type: ignore[attr-defined]
+            self._align_x_edge_labels(ax)  # type: ignore[attr-defined]
+
         # Anchor the data range with explicit boundary ticks at the exact
         # x start/end, after layout has settled (geometry-dependent).
         self._draw_x_boundary_ticks(ax)  # type: ignore[attr-defined]
@@ -192,7 +205,7 @@ class FigureMixin:
                 extra = abs(tight_bot_frac) + 0.01
                 plt.subplots_adjust(bottom=min(fig.subplotpars.bottom + extra, 0.45))
         except Exception:
-            pass
+            logger.debug("_auto_expand_bottom geometry step failed", exc_info=True)
 
     def _auto_expand_right(self, ax: plt.Axes, right_texts: list) -> None:
         """Re-adjust right margin if inside y-tick labels bleed past the figure edge.
@@ -215,7 +228,70 @@ class FigureMixin:
                 extra = tight_right_frac - 1.0 + 0.01
                 plt.subplots_adjust(right=max(fig.subplotpars.right - extra, 0.5))
         except Exception:
-            pass
+            logger.debug("_auto_expand_right geometry step failed", exc_info=True)
+
+    def _apply_x_upper_padding(self, ax: plt.Axes, inside_ytick_texts: list) -> None:
+        """Pad the upper x-limit so the last data point clears the inside y-tick labels.
+
+        ``self._x_data_bounds`` (set by ``bar()``/``line()``) holds the *true*
+        data range — the spine, boundary ticks, and edge tick labels all
+        anchor to it. Here we widen ``ax.get_xlim()`` beyond ``data_hi`` so
+        that empty space, not data, sits under the inside y-tick labels on
+        the right edge. Skipped entirely when the caller passed an explicit
+        ``xlim`` (``self._x_xlim_explicit``) — that range is authoritative.
+        """
+        if self._x_xlim_explicit:  # type: ignore[attr-defined]
+            return
+
+        bounds = self._x_data_bounds  # type: ignore[attr-defined]
+        if bounds is None:
+            return
+
+        lo, hi = bounds
+        span = hi - lo
+        if span <= 0:
+            return
+
+        rel_pad = self._x_upper_pad  # type: ignore[attr-defined]
+        if rel_pad is None:
+            rel_pad = self._auto_x_upper_pad(ax, inside_ytick_texts)
+            logger.debug("Auto-measured x upper pad: %.4f (relative to data span)", rel_pad)
+
+        if rel_pad > 0:
+            ax.set_xlim(lo, hi + rel_pad * span)
+
+    def _auto_x_upper_pad(self, ax: plt.Axes, inside_ytick_texts: list) -> float:
+        """Measure how far the inside y-tick labels reach left of the axes' right edge.
+
+        Returns a pad expressed *relative to the data span* (e.g. ``0.05``
+        means "add 5% of the data range to the upper xlim"), so it composes
+        with ``hi + rel_pad * span`` the same way a manual ``x_upper_pad``
+        override does.
+        """
+        # Inside labels only crowd the x-axis when they sit on the right
+        # edge (the default, mirroring y_axis_side="right").
+        if self.y_axis_side != "right" or not inside_ytick_texts:
+            return 0.0
+
+        fig = ax.get_figure()
+        try:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            ax_bbox = ax.get_window_extent(renderer)
+            if ax_bbox.width <= 0:
+                return 0.0
+
+            # Fraction of the axes width covered by each label, measured
+            # leftward from the axes' right edge.
+            covered = max(
+                (ax_bbox.x1 - t.get_window_extent(renderer).x0) / ax_bbox.width
+                for t in inside_ytick_texts
+            )
+            p = min(covered + 0.015, 0.9)  # small breathing-room gap; cap to avoid blow-up
+            return p / (1 - p)
+        except Exception:
+            logger.debug("_auto_x_upper_pad geometry step failed", exc_info=True)
+            return 0.0
 
     def _add_footer(self, fig: plt.Figure) -> None:
         if not self.show_footer:

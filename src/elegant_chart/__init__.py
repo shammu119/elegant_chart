@@ -1,8 +1,9 @@
 # elegant_chart/__init__.py
-from .elegant_chart import ElegantChart
+from ._logging import enable_logging
 from .base import ChartBase
 from .data_mixin import XPlan
-from .types import YFormatter, FormatterSpec, FormatterCallable
+from .elegant_chart import ElegantChart
+from .types import FormatterCallable, FormatterSpec, YFormatter
 
 __all__ = [
     "ElegantChart",
@@ -11,4 +12,5 @@ __all__ = [
     "YFormatter",
     "FormatterSpec",
     "FormatterCallable",
+    "enable_logging",
 ]

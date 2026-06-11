@@ -1,11 +1,14 @@
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 import pandas as pd
+
+from elegant_chart import ElegantChart, enable_logging
 from elegant_chart.get_api_data import get_series_df
-from elegant_chart import ElegantChart
+
+enable_logging()
 
 SERIES = {
     "Guesthouse": 217,

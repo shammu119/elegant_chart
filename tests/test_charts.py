@@ -569,7 +569,12 @@ def test_multi_series_legend_uses_multi_column_grid():
 
 
 def test_boundary_ticks_drawn_at_xlim():
-    """_finalize_axes adds short vertical Line2D segments at both x-limits."""
+    """_finalize_axes adds short vertical Line2D segments at the true data bounds.
+
+    ``ax.get_xlim()`` may now extend past the data maximum (auto upper-pad,
+    so the last label clears the inside y-tick labels), so boundary ticks
+    anchor to ``c._x_data_bounds`` rather than ``xlim`` directly.
+    """
     c = make_chart()
     fig, ax = c.line(x=[0, 1, 2, 3], ys=[0, 1, 4, 9], show=False)
     xlim = ax.get_xlim()
@@ -580,7 +585,11 @@ def test_boundary_ticks_drawn_at_xlim():
         for ln in ax.lines
         if len(ln.get_xdata()) == 2 and ln.get_xdata()[0] == ln.get_xdata()[1]
     }
-    assert set(xlim) <= boundary_x, "Expected a boundary tick at both xlim endpoints"
+    assert set(c._x_data_bounds) <= boundary_x, "Expected a boundary tick at both data bounds"
+    # Lower xlim sits exactly at the data minimum (no left padding).
+    assert xlim[0] == pytest.approx(c._x_data_bounds[0])
+    # Upper xlim is at or beyond the data maximum (auto/manual right padding).
+    assert xlim[1] >= c._x_data_bounds[1]
     plt.close(fig)
 
 
@@ -597,8 +606,140 @@ def test_boundary_ticks_present_for_datetime_axis():
         for ln in ax.lines
         if len(ln.get_xdata()) == 2 and ln.get_xdata()[0] == ln.get_xdata()[1]
     }
-    assert set(xlim) <= boundary_x
+    assert set(c._x_data_bounds) <= boundary_x
+    assert xlim[0] == pytest.approx(c._x_data_bounds[0])
+    assert xlim[1] >= c._x_data_bounds[1]
     plt.close(fig)
+
+
+# ── x-axis: data bounds, upper padding, edge alignment, minor ticks ────────
+
+
+def test_numeric_xlim_lower_at_data_min_upper_padded():
+    """Lower xlim == data min (no left pad); upper xlim >= data max (auto pad)."""
+    c = make_chart()
+    fig, ax = c.line(x=[0, 1, 2, 3], ys=[0, 1, 4, 9], show=False)
+    xlim = ax.get_xlim()
+    assert xlim[0] == pytest.approx(0.0)
+    assert xlim[1] >= 3.0
+    # Spine baseline spans the true data range, not the padded xlim.
+    assert ax.spines["bottom"].get_bounds()[:2] == pytest.approx((0.0, 3.0))
+    plt.close(fig)
+
+
+def test_explicit_xlim_skips_auto_padding():
+    """An explicit xlim is authoritative: no auto upper-pad is added."""
+    c = make_chart()
+    fig, ax = c.line(x=[0, 1, 2, 3], ys=[0, 1, 4, 9], xlim=(0, 3), show=False)
+    assert ax.get_xlim() == pytest.approx((0.0, 3.0))
+    plt.close(fig)
+
+
+def test_align_x_edges_default_true():
+    """First major x-tick label is left-aligned, last is right-aligned."""
+    c = make_chart()
+    fig, ax = c.bar(x=["A", "B", "C", "D"], ys=[1, 2, 3, 4], show=False)
+    labels = ax.get_xticklabels()
+    assert labels[0].get_horizontalalignment() == "left"
+    assert labels[-1].get_horizontalalignment() == "right"
+    plt.close(fig)
+
+
+def test_align_x_edges_can_be_disabled():
+    """align_x_edges=False keeps every x-tick label centered."""
+    c = make_chart()
+    fig, ax = c.bar(x=["A", "B", "C", "D"], ys=[1, 2, 3, 4], align_x_edges=False, show=False)
+    for lbl in ax.get_xticklabels():
+        assert lbl.get_horizontalalignment() == "center"
+    plt.close(fig)
+
+
+def test_datetime_major_ticks_include_data_endpoints():
+    """Datetime x-axis always labels the exact start and end of the data range."""
+    import matplotlib.dates as mdates
+
+    c = make_chart()
+    dates = [datetime(2020, 1, 1), datetime(2021, 6, 1), datetime(2022, 12, 1)]
+    fig, ax = c.line(x=dates, ys=[5, 7, 6], show=False)
+
+    lo, hi = mdates.date2num(dates[0]), mdates.date2num(dates[-1])
+    majors = ax.xaxis.get_majorticklocs()
+    assert majors[0] == pytest.approx(lo)
+    assert majors[-1] == pytest.approx(hi)
+
+    labels = ax.get_xticklabels()
+    assert labels[0].get_horizontalalignment() == "left"
+    assert labels[-1].get_horizontalalignment() == "right"
+    plt.close(fig)
+
+
+def test_numeric_minor_ticks_subdivide_major_intervals():
+    """x_minor_ticks=1 places one midpoint minor tick per major interval."""
+    c = make_chart()
+    fig, ax = c.line(
+        x=[0, 1, 2, 3, 4], ys=[0, 1, 2, 3, 4],
+        x_tick_step=1, x_minor_ticks=1, show=False,
+    )
+    majors = ax.xaxis.get_majorticklocs()
+    minors = ax.xaxis.get_minorticklocs()
+    n_intervals = len(majors) - 1
+    assert len(minors) == n_intervals
+    plt.close(fig)
+
+
+def test_datetime_minor_ticks_subdivide_major_intervals():
+    """For datetime axes, x_minor_ticks=1 adds a midpoint tick between each
+    pair of (endpoint-anchored) major ticks, e.g. mid-year on a yearly axis."""
+    c = make_chart()
+    dates = [datetime(2020, 1, 1), datetime(2021, 6, 1), datetime(2022, 12, 1)]
+    fig, ax = c.line(x=dates, ys=[5, 7, 6], x_minor_ticks=1, show=False)
+
+    majors = ax.xaxis.get_majorticklocs()
+    minors = ax.xaxis.get_minorticklocs()
+    assert len(minors) == len(majors) - 1
+    plt.close(fig)
+
+
+# ── chart_data.xlsx auto-export ─────────────────────────────────────────────
+
+
+def test_chart_data_xlsx_auto_exported_on_save(tmp_path):
+    pytest.importorskip("openpyxl")
+    out = tmp_path / "chart.png"
+    c = make_chart()
+    c.line(x=["Jan", "Feb", "Mar"], ys=[1, 2, 3], show=False, save_path=str(out))
+
+    xlsx_path = tmp_path / "chart_data.xlsx"
+    assert xlsx_path.exists()
+    df = pd.read_excel(xlsx_path)
+    assert list(df["x"]) == ["Jan", "Feb", "Mar"]
+
+
+def test_chart_data_xlsx_export_can_be_disabled(tmp_path):
+    pytest.importorskip("openpyxl")
+    out = tmp_path / "chart.png"
+    c = make_chart()
+    c.bar(
+        x=["Jan", "Feb", "Mar"], ys=[1, 2, 3],
+        show=False, save_path=str(out), export_xlsx=False,
+    )
+
+    assert not (tmp_path / "chart_data.xlsx").exists()
+
+
+def test_chart_data_xlsx_custom_path(tmp_path):
+    pytest.importorskip("openpyxl")
+    out = tmp_path / "chart.png"
+    custom = tmp_path / "data" / "custom.xlsx"
+    custom.parent.mkdir()
+    c = make_chart()
+    c.bar(
+        x=["Jan", "Feb", "Mar"], ys=[1, 2, 3],
+        show=False, save_path=str(out), export_xlsx_path=str(custom),
+    )
+
+    assert custom.exists()
+    assert not (tmp_path / "chart_data.xlsx").exists()
 
 
 # ── color roles & color_map ────────────────────────────────────────────────

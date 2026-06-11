@@ -1,13 +1,15 @@
 # elegant_chart/data_mixin.py
 from __future__ import annotations
 
-from math import ceil
+import os
 from datetime import datetime
+from math import ceil
 from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
+from ._logging import logger
 from .types import FormatterSpec  # noqa: F401 — re-exported for mixin consumers
 
 
@@ -371,14 +373,30 @@ class DataMixin:
         save_dpi: int,
         save_format: Optional[str],
         show: bool,
+        export_xlsx: bool = True,
+        export_xlsx_path: Optional[str] = None,
         **save_kwargs: Any,
     ) -> None:
-        """Call finalize_axes, add_footer, optional save, optional show."""
+        """Call finalize_axes, add_footer, optional save, optional export, optional show."""
         self._finalize_axes(ax, rotation=rotation, has_legend=has_legend)  # type: ignore[attr-defined]
         self._add_footer(fig)  # type: ignore[attr-defined]
 
         if save_path is not None:
             self.save_figure(fig, save_path, dpi=save_dpi, fmt=save_format, **save_kwargs)  # type: ignore[attr-defined]
+            logger.info("Saved chart -> %s", save_path)
+
+            if export_xlsx:
+                target = export_xlsx_path or os.path.join(
+                    os.path.dirname(str(save_path)) or ".", "chart_data.xlsx"
+                )
+                try:
+                    self.export_data(target)
+                    logger.info("Exported chart data -> %s", target)
+                except ImportError:
+                    logger.warning(
+                        "Skipped chart_data.xlsx export: openpyxl is not installed "
+                        "(install with `pip install openpyxl`)."
+                    )
 
         import matplotlib.pyplot as plt  # noqa: PLC0415
         if show:

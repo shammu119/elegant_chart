@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from matplotlib import rc_context
 
-from .types import FormatterSpec
+from ._logging import logger
 from .data_mixin import DataMixin
+from .types import FormatterSpec
 
 
 class LineMixin(DataMixin):
@@ -38,10 +39,15 @@ class LineMixin(DataMixin):
         x_formatter: Optional[FormatterSpec] = None,
         xlim: Optional[Tuple[float, float]] = None,
         ylim: Optional[Tuple[float, float]] = None,
+        x_minor_ticks: Optional[int] = None,
+        x_upper_pad: Optional[float] = None,
+        align_x_edges: Optional[bool] = None,
         show: bool = True,
         save_path: Optional[str] = None,
         save_dpi: int = 500,
         save_format: Optional[str] = None,
+        export_xlsx: bool = True,
+        export_xlsx_path: Optional[str] = None,
         **save_kwargs: Any,
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Create a line chart with categorical, numeric, or datetime x values."""
@@ -68,6 +74,23 @@ class LineMixin(DataMixin):
         active_xlim = xlim if xlim is not None else self.xlim  # type: ignore[attr-defined]
         x_plan = self._resolve_x_plan(x, active_xlim)
 
+        # Resolve x-axis knobs: explicit call argument wins, else instance default.
+        self._x_minor_ticks = x_minor_ticks if x_minor_ticks is not None else self.x_minor_ticks  # type: ignore[attr-defined]
+        self._x_upper_pad = x_upper_pad if x_upper_pad is not None else self.x_upper_pad  # type: ignore[attr-defined]
+        self._align_x_edges = align_x_edges if align_x_edges is not None else self.align_x_edges  # type: ignore[attr-defined]
+        self._x_xlim_explicit = active_xlim is not None  # type: ignore[attr-defined]
+
+        if x_plan.is_datetime:
+            x_kind = "datetime"
+        elif x_plan.is_categorical:
+            x_kind = "categorical"
+        else:
+            x_kind = "numeric"
+        logger.info(
+            "Rendering line chart %r: %d series x %d points, x-axis=%s",
+            self.title, len(series_list), len(x), x_kind,  # type: ignore[attr-defined]
+        )
+
         # Resolve linewidth: None → auto-scale from reference; explicit float → honour as-is.
         effective_lw = linewidth if linewidth is not None else self._px(0.6)  # type: ignore[attr-defined]
 
@@ -76,6 +99,13 @@ class LineMixin(DataMixin):
             self._configure_grid(ax)  # type: ignore[attr-defined]
 
             x_positions = x_plan.positions
+            if self._x_xlim_explicit:  # type: ignore[attr-defined]
+                # An explicit xlim defines the range to anchor (spine + boundary
+                # ticks); auto upper-padding is skipped for this case.
+                self._x_data_bounds = tuple(float(v) for v in active_xlim)  # type: ignore[attr-defined]
+            else:
+                self._x_data_bounds = (float(x_positions.min()), float(x_positions.max()))  # type: ignore[attr-defined]
+            logger.debug("Resolved x data bounds: %s", self._x_data_bounds)  # type: ignore[attr-defined]
 
             if x_plan.is_datetime:
                 ax.xaxis_date()
@@ -166,7 +196,11 @@ class LineMixin(DataMixin):
                 )
 
             elif x_plan.is_datetime:
-                self._apply_datetime_x_axis(ax, x, max_x_ticks=max_x_ticks)  # type: ignore[attr-defined]
+                self._apply_datetime_x_axis(  # type: ignore[attr-defined]
+                    ax, x, max_x_ticks=max_x_ticks,
+                    data_bounds=self._x_data_bounds,  # type: ignore[attr-defined]
+                    minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
+                )
 
             else:
                 self._apply_numeric_x_axis(  # type: ignore[attr-defined]
@@ -175,6 +209,7 @@ class LineMixin(DataMixin):
                     x_tick_step=x_tick_step,
                     max_x_ticks=max_x_ticks,
                     x_formatter=x_formatter,
+                    minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
                 )
                 if x_plan.use_numeric_axis_with_labels and x_plan.x_tick_labels_forced:
                     tick_lbls = self._compact_years(
@@ -202,6 +237,8 @@ class LineMixin(DataMixin):
                 save_dpi=save_dpi,
                 save_format=save_format,
                 show=show,
+                export_xlsx=export_xlsx,
+                export_xlsx_path=export_xlsx_path,
                 **save_kwargs,
             )
 

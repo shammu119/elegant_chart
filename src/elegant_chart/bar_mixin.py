@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from matplotlib import rc_context
 
-from .types import FormatterSpec
+from ._logging import logger
 from .data_mixin import DataMixin
+from .types import FormatterSpec
 
 
 class BarMixin(DataMixin):
@@ -39,11 +40,16 @@ class BarMixin(DataMixin):
         x_formatter: Optional[FormatterSpec] = None,
         xlim: Optional[Tuple[float, float]] = None,
         ylim: Optional[Tuple[float, float]] = None,
+        x_minor_ticks: Optional[int] = None,
+        x_upper_pad: Optional[float] = None,
+        align_x_edges: Optional[bool] = None,
         # output
         show: bool = True,
         save_path: Optional[str] = None,
         save_dpi: int = 500,
         save_format: Optional[str] = None,
+        export_xlsx: bool = True,
+        export_xlsx_path: Optional[str] = None,
         **save_kwargs: Any,
     ) -> Tuple[plt.Figure, plt.Axes]:
         """Create a bar chart with categorical, numeric, or datetime x values."""
@@ -71,11 +77,35 @@ class BarMixin(DataMixin):
         x_plan = self._resolve_x_plan(x, active_xlim)
         effective_bar_width = bar_width if bar_width is not None else self._auto_bar_width(x_plan, len(x))
 
+        # Resolve x-axis knobs: explicit call argument wins, else instance default.
+        self._x_minor_ticks = x_minor_ticks if x_minor_ticks is not None else self.x_minor_ticks  # type: ignore[attr-defined]
+        self._x_upper_pad = x_upper_pad if x_upper_pad is not None else self.x_upper_pad  # type: ignore[attr-defined]
+        self._align_x_edges = align_x_edges if align_x_edges is not None else self.align_x_edges  # type: ignore[attr-defined]
+        self._x_xlim_explicit = active_xlim is not None  # type: ignore[attr-defined]
+
+        if x_plan.is_datetime:
+            x_kind = "datetime"
+        elif x_plan.is_categorical:
+            x_kind = "categorical"
+        else:
+            x_kind = "numeric"
+        logger.info(
+            "Rendering bar chart %r: %d series x %d points, x-axis=%s",
+            self.title, len(series_list), len(x), x_kind,  # type: ignore[attr-defined]
+        )
+
         with rc_context(self._rc):  # type: ignore[attr-defined]
             fig, ax = self._init_figure_and_axes()  # type: ignore[attr-defined]
             self._configure_grid(ax)  # type: ignore[attr-defined]
 
             base_positions = x_plan.positions
+            if self._x_xlim_explicit:  # type: ignore[attr-defined]
+                # An explicit xlim defines the range to anchor (spine + boundary
+                # ticks); auto upper-padding is skipped for this case.
+                self._x_data_bounds = tuple(float(v) for v in active_xlim)  # type: ignore[attr-defined]
+            else:
+                self._x_data_bounds = (float(base_positions.min()), float(base_positions.max()))  # type: ignore[attr-defined]
+            logger.debug("Resolved x data bounds: %s", self._x_data_bounds)  # type: ignore[attr-defined]
 
             if x_plan.is_datetime:
                 ax.xaxis_date()
@@ -166,7 +196,11 @@ class BarMixin(DataMixin):
                 )
 
             elif x_plan.is_datetime:
-                self._apply_datetime_x_axis(ax, x, max_x_ticks=max_x_ticks)  # type: ignore[attr-defined]
+                self._apply_datetime_x_axis(  # type: ignore[attr-defined]
+                    ax, x, max_x_ticks=max_x_ticks,
+                    data_bounds=self._x_data_bounds,  # type: ignore[attr-defined]
+                    minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
+                )
 
             else:
                 self._apply_numeric_x_axis(  # type: ignore[attr-defined]
@@ -175,6 +209,7 @@ class BarMixin(DataMixin):
                     x_tick_step=x_tick_step,
                     max_x_ticks=max_x_ticks,
                     x_formatter=x_formatter,
+                    minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
                 )
                 if x_plan.use_numeric_axis_with_labels and x_plan.x_tick_labels_forced:
                     tick_lbls = self._compact_years(
@@ -200,11 +235,13 @@ class BarMixin(DataMixin):
             ax.tick_params(axis="y", which="both", length=0, pad=0)
             ax.tick_params(axis="x", which="major", direction="out", pad=self._px(1.5), length=self._px(3), width=self._px(0.5))
             ax.margins(x=0)
-            _xlo, _xhi = float(base_positions.min()), float(base_positions.max())
-            if _xlo == _xhi:
-                _xlo -= 0.5
-                _xhi += 0.5
-            ax.set_xlim(_xlo, _xhi)
+            if not self._x_xlim_explicit:  # type: ignore[attr-defined]
+                _xlo, _xhi = self._x_data_bounds  # type: ignore[attr-defined]
+                if _xlo == _xhi:
+                    _xlo -= 0.5
+                    _xhi += 0.5
+                    self._x_data_bounds = (_xlo, _xhi)  # type: ignore[attr-defined]
+                ax.set_xlim(_xlo, _xhi)
 
             # ── finalize + output ─────────────────────────────────────────
             has_legend = self._should_show_legend(series_list)
@@ -216,6 +253,8 @@ class BarMixin(DataMixin):
                 save_dpi=save_dpi,
                 save_format=save_format,
                 show=show,
+                export_xlsx=export_xlsx,
+                export_xlsx_path=export_xlsx_path,
                 **save_kwargs,
             )
 

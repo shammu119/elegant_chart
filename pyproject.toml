@@ -22,7 +22,7 @@ Repository = "https://github.com/shammu119/elegant_chart"
 
 [project.optional-dependencies]
 data = ["requests>=2.25", "openpyxl>=3.0"]
-dev  = ["pytest>=7", "ruff>=0.4"]
+dev  = ["pytest>=7", "ruff>=0.4", "openpyxl>=3.0"]
 
 [build-system]
 requires = ["setuptools>=61"]
