@@ -14,10 +14,11 @@
 10. [Title, subtitle, labels, caption](#10-title-subtitle-labels-caption)
 11. [Saving charts](#11-saving-charts)
 12. [Exporting data to Excel](#12-exporting-data-to-excel)
-13. [Font notes](#13-font-notes)
-14. [MMA Statistics API helper](#14-mma-statistics-api-helper)
-15. [Extending with custom mixins](#15-extending-with-custom-mixins)
-16. [Error reference](#16-error-reference)
+13. [Logging](#13-logging)
+14. [Font notes](#14-font-notes)
+15. [MMA Statistics API helper](#15-mma-statistics-api-helper)
+16. [Extending with custom mixins](#16-extending-with-custom-mixins)
+17. [Error reference](#17-error-reference)
 
 ---
 
@@ -375,6 +376,21 @@ chart.bar(
 )
 ```
 
+### X-axis — datetime
+
+Pass `datetime`/`Timestamp` values for `x` and the axis is formatted automatically
+(`AutoDateFormatter`). The major ticks **always include the exact first and last
+data points**, in addition to whatever interior cadence (yearly, monthly, …)
+matplotlib's date locator picks for the range:
+
+```python
+chart.line(x=dates, ys=values)
+# e.g. labels: 2000-01-31   2005   2010   2015   2020   2026-04-30
+```
+
+Interior ticks that would crowd those endpoint labels are dropped automatically.
+Use `max_x_ticks` to cap how many interior ticks the locator may add.
+
 ### X-axis — categorical thinning
 
 When you have many categorical labels, the library auto-thins them to avoid overlap.
@@ -390,6 +406,44 @@ chart.bar(x=years_list, ys=values, max_x_ticks=6)
 # Disable auto-thinning entirely
 chart.bar(x=short_list, ys=values, auto_x_thinning=False)
 ```
+
+### X-axis — minor ticks
+
+`x_minor_ticks` adds N evenly-spaced, unlabeled minor ticks between each pair of
+major ticks. Works for numeric and datetime axes (not categorical).
+
+```python
+# A single midpoint minor tick per interval — e.g. mid-year on a yearly axis
+chart.line(x=dates, ys=values, x_minor_ticks=1)
+
+# 3 minor ticks between each major numeric tick
+chart.bar(x=[0, 1, 2, 3, 4], ys=[...], x_tick_step=1, x_minor_ticks=3)
+```
+
+### X-axis — edge label alignment & padding
+
+By default (`align_x_edges=True`), the **first** major x-tick label is left-aligned
+and the **last** is right-aligned — interior labels stay centered. Combined with
+the lower x-limit always sitting at the data minimum, the first label starts
+exactly at the left edge instead of bleeding past it.
+
+The upper x-limit gets extra padding beyond the data maximum, auto-measured from
+the rendered inside y-tick label widths, so the last data point and its label
+clear those labels on the right edge.
+
+```python
+# Revert to centered tick labels
+chart.bar(x=["A", "B", "C", "D"], ys=[1, 2, 3, 4], align_x_edges=False)
+
+# Force a specific right-side pad (relative to the data span)
+chart.line(x=dates, ys=values, x_upper_pad=0.10)
+
+# Pin an explicit xlim to disable auto padding entirely
+chart.line(x=dates, ys=values, xlim=(dates[0], dates[-1]))
+```
+
+`x_minor_ticks`, `x_upper_pad`, and `align_x_edges` can also be passed to
+`ElegantChart(...)` as instance-wide defaults.
 
 ---
 
@@ -499,6 +553,9 @@ chart.bar(
 )
 ```
 
+> **Note:** saving also writes `chart_data.xlsx` next to the image by default —
+> see [§12 Exporting data to Excel](#12-exporting-data-to-excel).
+
 Supported formats: anything matplotlib supports — `png`, `pdf`, `svg`, `eps`.
 
 ```python
@@ -531,8 +588,39 @@ chart.bar(
 
 ## 12. Exporting data to Excel
 
-After any `bar()` or `line()` call, `export_data()` writes the underlying data to
-an `.xlsx` file. The sheet has one column per series plus an `x` column.
+### Automatic export on save
+
+Whenever `save_path` is given, the rendered data is also written to
+`chart_data.xlsx` in the same directory — so the image and the numbers behind it
+always travel together.
+
+```python
+chart.line(x=dates, ys=values, show=False, save_path="output/chart.png")
+# Also writes: output/chart_data.xlsx
+```
+
+- `export_xlsx=False` — skip the automatic export.
+- `export_xlsx_path="data/quarterly.xlsx"` — write to a specific path instead of
+  `chart_data.xlsx` beside the image.
+- If `openpyxl` isn't installed, the export is skipped with a logged warning (see
+  [§13 Logging](#13-logging)) — the chart image still saves normally.
+
+```python
+chart.bar(x=..., ys=..., show=False, save_path="chart.png", export_xlsx=False)
+
+chart.bar(
+    x=..., ys=...,
+    show=False,
+    save_path="chart.png",
+    export_xlsx_path="data/quarterly.xlsx",
+)
+```
+
+### Manual export
+
+You can also export at any time after a render by calling `export_data()`
+directly — independent of `save_path`. The sheet has one column per series plus
+an `x` column.
 
 ```python
 chart = ElegantChart(title="Trade Data")
@@ -559,11 +647,43 @@ chart.line(x=["X", "Y", "Z"], ys=[9, 8, 7], show=False)  # replaces previous
 chart.export_data("latest.xlsx")  # contains X, Y, Z data — not A, B
 ```
 
-Requires `openpyxl` (included in `pip install "elegant_chart[data]"`).
+Requires `openpyxl` (included in `pip install "elegant_chart[data]"`, or via the
+`dev` extra for contributors).
 
 ---
 
-## 13. Font notes
+## 13. Logging
+
+`elegant_chart` is silent by default — its logger (`"elegant_chart"`) only has a
+`NullHandler` attached. Call `enable_logging()` once, near the top of your script,
+to see what happens during a render:
+
+```python
+from elegant_chart import ElegantChart, enable_logging
+
+enable_logging()  # INFO level by default
+
+chart = ElegantChart(title="Occupancy")
+chart.line(x=dates, ys=values, show=False, save_path="chart.png")
+```
+
+```
+[elegant_chart] INFO: Rendering line chart 'Occupancy': 1 series x 36 points, x-axis=datetime
+[elegant_chart] INFO: Saved chart -> chart.png
+[elegant_chart] INFO: Exported chart data -> chart_data.xlsx
+```
+
+Pass `logging.DEBUG` for more detail — resolved x-axis data bounds, auto-measured
+upper padding, and datetime tick placement:
+
+```python
+import logging
+enable_logging(logging.DEBUG)
+```
+
+---
+
+## 14. Font notes
 
 `elegant_chart` is designed to use Apple's **SF Pro** typeface. If the font files
 are not present, the library falls back to the system sans-serif and emits a
@@ -598,7 +718,7 @@ chart = ElegantChart(...)
 
 ---
 
-## 14. MMA Statistics API helper
+## 15. MMA Statistics API helper
 
 Requires the `data` extras group:
 
@@ -667,7 +787,7 @@ chart.export_data("series_2307.xlsx")
 
 ---
 
-## 15. Extending with custom mixins
+## 16. Extending with custom mixins
 
 Because `ElegantChart` is assembled from mixins on top of `ChartBase`, you can add
 new chart types by writing a mixin and composing it in.
@@ -718,7 +838,7 @@ contract defined in `base.py`.
 
 ---
 
-## 16. Error reference
+## 17. Error reference
 
 | Error | Cause | Fix |
 |-------|-------|-----|
@@ -728,6 +848,7 @@ contract defined in `base.py`.
 | `ValueError: ys must be provided` | Called `bar(x=...)` without `ys` or `df` | Pass `ys=` or use `df=` with `x_col` and `y_cols` |
 | `ValueError: If df is provided, x_col and y_cols must be set` | `df=` passed without column names | Always pair `df=` with `x_col=` and `y_cols=` |
 | `RuntimeError: No chart data to export` | `export_data()` called before `bar()`/`line()` | Call a chart method first |
-| `ImportError: openpyxl is required` | `export_data()` or `.to_excel()` without openpyxl | `pip install "elegant_chart[data]"` |
+| `ImportError: openpyxl is required` | Manual `export_data()` or `.to_excel()` without openpyxl | `pip install "elegant_chart[data]"` |
+| `WARNING: Skipped chart_data.xlsx export: openpyxl is not installed` | Automatic export-on-save (§12) without openpyxl | `pip install openpyxl`, or pass `export_xlsx=False` |
 | `RuntimeError: MMA API token not found` | `get_series_df()` called without token | Set `MMA_API_TOKEN` env var or create `TOKEN.txt` |
-| `UserWarning: SF Pro fonts not found` | SF Pro not installed | Install fonts into `fonts/` or suppress the warning (see §13) |
+| `UserWarning: SF Pro fonts not found` | SF Pro not installed | Install fonts into `fonts/` or suppress the warning (see §14) |
