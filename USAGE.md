@@ -19,6 +19,7 @@
 15. [MMA Statistics API helper](#15-mma-statistics-api-helper)
 16. [Extending with custom mixins](#16-extending-with-custom-mixins)
 17. [Error reference](#17-error-reference)
+18. [Standalone runnable examples](#18-standalone-runnable-examples)
 
 ---
 
@@ -852,3 +853,29 @@ contract defined in `base.py`.
 | `WARNING: Skipped chart_data.xlsx export: openpyxl is not installed` | Automatic export-on-save (§12) without openpyxl | `pip install openpyxl`, or pass `export_xlsx=False` |
 | `RuntimeError: MMA API token not found` | `get_series_df()` called without token | Set `MMA_API_TOKEN` env var or create `TOKEN.txt` |
 | `UserWarning: SF Pro fonts not found` | SF Pro not installed | Install fonts into `fonts/` or suppress the warning (see §14) |
+
+---
+
+## 18. Standalone runnable examples
+
+There are only two chart types — `bar()` and `line()`. The `examples/` directory
+contains four self-contained scripts you can copy and run directly:
+
+| File | Description |
+|------|-------------|
+| [`examples/bar_minimal.py`](examples/bar_minimal.py) | Smallest possible bar chart — mock DataFrame, defaults only |
+| [`examples/bar_comprehensive.py`](examples/bar_comprehensive.py) | Every `ElegantChart(...)` and `bar(...)` argument set explicitly, with a comment for each |
+| [`examples/line_minimal.py`](examples/line_minimal.py) | Smallest possible line chart — mock numpy data, defaults only |
+| [`examples/line_comprehensive.py`](examples/line_comprehensive.py) | Every `ElegantChart(...)` and `line(...)` argument set explicitly, with a comment for each |
+
+Each file has its own imports and mock data, so it runs standalone:
+
+```bash
+python examples/bar_minimal.py
+python examples/line_comprehensive.py
+```
+
+The comprehensive examples save a `.png` and `chart_data.xlsx` to the current
+directory in addition to opening an interactive window — use them as a
+reference for what every argument does, then delete the unused ones for your
+own chart.
