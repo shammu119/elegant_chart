@@ -27,6 +27,12 @@ Axis / tick
     xlim, ylim                   — (float, float) | None
     x_minor_ticks                — int | None  (minor ticks per major interval;
                                     1 == a single midpoint tick, e.g. mid-year)
+    x_date_format                — str | None  (strftime format, e.g. "%Y", for
+                                    datetime x-axes; when set, uses a fixed
+                                    DateFormatter and skips endpoint-pinning so the
+                                    locator places clean, evenly-spaced ticks. The
+                                    true data range remains anchored by the
+                                    unlabeled boundary tick marks)
     x_upper_pad                  — float | None  (relative-to-data-span pad added
                                     to the upper xlim; None == auto-measured from
                                     the rendered inside y-tick label widths)
@@ -90,7 +96,7 @@ class ChartBase:
         theme: str = "newsroom_dark",
         color_map: Optional[dict[str, str]] = None,
         font_scale: float = 0.9,
-        dpi: int = 150,
+        dpi: int = 500,
         x_tick_step: Optional[float] = None,
         max_x_ticks: Optional[int] = None,
         auto_x_thinning: bool = True,
@@ -100,6 +106,7 @@ class ChartBase:
         xlim: Optional[Tuple[float, float]] = None,
         ylim: Optional[Tuple[float, float]] = None,
         x_minor_ticks: Optional[int] = None,
+        x_date_format: Optional[str] = None,
         x_upper_pad: Optional[float] = None,
         align_x_edges: bool = True,
         logo_path: Optional[str] = None,
@@ -142,6 +149,7 @@ class ChartBase:
         self.ylim = ylim
 
         self.x_minor_ticks = x_minor_ticks
+        self.x_date_format = x_date_format
         self.x_upper_pad = x_upper_pad
         self.align_x_edges = align_x_edges
 

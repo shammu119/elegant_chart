@@ -276,47 +276,70 @@ class AxisMixin:
         max_x_ticks: Optional[int] = None,
         data_bounds: Optional[Tuple[float, float]] = None,
         minor_ticks: Optional[int] = None,
+        date_format: Optional[str] = None,
     ) -> None:
         auto_locator = mdates.AutoDateLocator(minticks=3, maxticks=max_x_ticks or 7)
-        formatter = mdates.AutoDateFormatter(auto_locator)
+        formatter = (
+            mdates.DateFormatter(date_format)
+            if date_format
+            else mdates.AutoDateFormatter(auto_locator)
+        )
         ax.xaxis.set_major_formatter(formatter)
 
+        # Endpoint pinning forces the exact first/last data points in as labeled
+        # major ticks so the axis is always labeled at its true range — but with
+        # an explicit date_format those endpoints are arbitrary dates that don't
+        # align to the requested cadence (e.g. a "%Y" axis would gain a stray
+        # mid-year label). Skip pinning in that case and let the locator place
+        # clean, evenly-spaced ticks; the true range stays anchored by the
+        # unlabeled boundary tick marks (_draw_x_boundary_ticks).
+        pin_endpoints = data_bounds is not None and not date_format
+
+        majors: Optional[List[float]] = None
         if data_bounds is not None:
             lo, hi = data_bounds
-            # Take the auto cadence's interior ticks, drop any that crowd the
-            # endpoints, then pin the exact data bounds as the first/last
-            # major ticks so the axis is always labeled at its true range.
             # AutoDateLocator.tick_values() requires datetime bounds (it
             # internally diffs them with relativedelta), not raw date2num
-            # floats — convert, then map the resulting ticks back to floats.
+            # floats — convert. Note tick_values() already returns its
+            # result in date2num scale, so no further conversion is needed.
             dmin, dmax = mdates.num2date(lo), mdates.num2date(hi)
             interior = [
-                t for t in mdates.date2num(auto_locator.tick_values(dmin, dmax))
+                t for t in auto_locator.tick_values(dmin, dmax)
                 if lo < t < hi
             ]
-            span = hi - lo
-            if span > 0:
-                edge_margin = span * 0.04
-                interior = [
-                    t for t in interior
-                    if (t - lo) > edge_margin and (hi - t) > edge_margin
-                ]
-            majors: List[float] = sorted({lo, *interior, hi})
-            ax.xaxis.set_major_locator(FixedLocator(majors))
-            logger.debug("Datetime major ticks (incl. endpoints): %s", majors)
 
-            if minor_ticks:
-                minors: List[float] = []
-                for a, b in zip(majors[:-1], majors[1:]):
-                    step = (b - a) / (minor_ticks + 1)
-                    minors.extend(a + step * i for i in range(1, minor_ticks + 1))
-                ax.xaxis.set_minor_locator(FixedLocator(minors))
-                ax.tick_params(
-                    axis="x", which="minor", direction="out",
-                    length=self._px(1.5), width=self._px(0.4),  # type: ignore[attr-defined]
-                )
-        else:
+            if pin_endpoints:
+                # Take the auto cadence's interior ticks, drop any that crowd
+                # the endpoints, then pin the exact data bounds as the
+                # first/last major ticks.
+                span = hi - lo
+                if span > 0:
+                    edge_margin = span * 0.04
+                    interior = [
+                        t for t in interior
+                        if (t - lo) > edge_margin and (hi - t) > edge_margin
+                    ]
+                majors = sorted({lo, *interior, hi})
+                ax.xaxis.set_major_locator(FixedLocator(majors))
+                logger.debug("Datetime major ticks (incl. endpoints): %s", majors)
+            else:
+                majors = sorted(interior)
+                ax.xaxis.set_major_locator(FixedLocator(majors))
+                logger.debug("Datetime major ticks: %s", majors)
+
+        if majors is None:
             ax.xaxis.set_major_locator(auto_locator)
+
+        if minor_ticks and majors and len(majors) >= 2:
+            minors: List[float] = []
+            for a, b in zip(majors[:-1], majors[1:]):
+                step = (b - a) / (minor_ticks + 1)
+                minors.extend(a + step * i for i in range(1, minor_ticks + 1))
+            ax.xaxis.set_minor_locator(FixedLocator(minors))
+            ax.tick_params(
+                axis="x", which="minor", direction="out",
+                length=self._px(1.5), width=self._px(0.4),  # type: ignore[attr-defined]
+            )
 
         # Keep labels horizontal (Economist style); avoid autofmt_xdate(),
         # which rotates and right-aligns datetime labels. Per-label

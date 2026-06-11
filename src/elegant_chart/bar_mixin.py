@@ -41,6 +41,7 @@ class BarMixin(DataMixin):
         xlim: Optional[Tuple[float, float]] = None,
         ylim: Optional[Tuple[float, float]] = None,
         x_minor_ticks: Optional[int] = None,
+        x_date_format: Optional[str] = None,
         x_upper_pad: Optional[float] = None,
         align_x_edges: Optional[bool] = None,
         # output
@@ -149,6 +150,7 @@ class BarMixin(DataMixin):
                 label_width_strategy=label_width_strategy,
                 tick_label_pad=tick_label_pad,
                 x_formatter=x_formatter,
+                x_date_format=x_date_format,
             )
 
             # ── y axis ────────────────────────────────────────────────────

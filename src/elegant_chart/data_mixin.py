@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import date, datetime
 from math import ceil
 from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
@@ -144,7 +144,7 @@ class DataMixin:
     # ── datetime detection ────────────────────────────────────────────────
 
     def _is_datetime_like(self, value: Any) -> bool:
-        if isinstance(value, (datetime, pd.Timestamp)):
+        if isinstance(value, (date, datetime, pd.Timestamp)):
             return True
         try:
             return bool(np.issubdtype(type(value), np.datetime64))
@@ -295,6 +295,7 @@ class DataMixin:
         label_width_strategy: str,
         tick_label_pad: Optional[float],
         x_formatter: Optional[FormatterSpec],
+        x_date_format: Optional[str] = None,
     ) -> None:
         """Render x-axis ticks/labels for categorical, datetime, or numeric axes.
 
@@ -328,10 +329,15 @@ class DataMixin:
             )
 
         elif x_plan.is_datetime:
+            resolved_date_format = (
+                x_date_format if x_date_format is not None
+                else getattr(self, "x_date_format", None)
+            )
             self._apply_datetime_x_axis(  # type: ignore[attr-defined]
                 ax, x, max_x_ticks=max_x_ticks,
                 data_bounds=self._x_data_bounds,  # type: ignore[attr-defined]
                 minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
+                date_format=resolved_date_format,
             )
 
         else:

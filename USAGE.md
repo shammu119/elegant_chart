@@ -392,6 +392,20 @@ chart.line(x=dates, ys=values)
 Interior ticks that would crowd those endpoint labels are dropped automatically.
 Use `max_x_ticks` to cap how many interior ticks the locator may add.
 
+Both `datetime`/`Timestamp` **and plain `datetime.date`** values are accepted.
+
+#### Fixed date format (e.g. years only)
+
+Pass `x_date_format` (a `strftime` string) to use a fixed format instead of the
+auto formatter. This also **disables endpoint pinning**, so the locator places
+clean, evenly-spaced ticks rather than labeling the exact first/last data points.
+The true data range stays anchored by the unlabeled boundary tick marks.
+
+```python
+chart.line(x=dates, ys=values, x_date_format="%Y")
+# e.g. labels: 2016   2018   2020   2022
+```
+
 ### X-axis — categorical thinning
 
 When you have many categorical labels, the library auto-thins them to avoid overlap.

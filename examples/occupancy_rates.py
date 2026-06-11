@@ -61,6 +61,14 @@ chart = ElegantChart(
     subtitle="Occupancy % by accommodation type",
     caption="Source: MMA Statistics API\nData Visualized by Hassan Shammu",
     theme="newsroom_dark",
+    x_minor_ticks=1,
+    align_x_edges=True,
+    color_map={
+        "Resorts": "#64D2FF",
+        "Guesthouse": "#E8742A",
+        "Hotels": "#A78BFA",
+        "Safari Vessel": "#34D399",
+    },
 )
 
 chart.line(
@@ -71,4 +79,6 @@ chart.line(
     y_formatter=lambda x, pos: f"{x * 100:.0f}",
     show=False,
     save_path="occupancy_rates.png",
+    x_minor_ticks=3,
+    x_date_format="%Y",
 )

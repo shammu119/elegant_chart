@@ -49,7 +49,7 @@ def test_import():
 def test_instantiation_defaults():
     c = ElegantChart()
     assert c.theme == "newsroom_dark"
-    assert c.dpi == 150
+    assert c.dpi == 500
     assert c.figsize == (2.16, 2.70), "Default figsize must yield 1080×1350 px at save_dpi=500"
     assert c._figure_scale == pytest.approx(0.6), "_figure_scale must be 0.6 at the default figsize (2.16/3.6)"
     assert c.font_scale == 0.9
