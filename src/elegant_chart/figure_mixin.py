@@ -70,7 +70,8 @@ class FigureMixin:
         # as the "0" gridline instead of sitting at ylim[0] with a gap above it.
         # Data dipping below zero then renders below the line.
         ymin, ymax = ax.get_ylim()
-        if ymin < 0 < ymax:
+        self._baseline_relocated = ymin < 0 < ymax  # type: ignore[attr-defined]
+        if self._baseline_relocated:
             ax.spines["bottom"].set_position(("data", 0))
 
         if self.show_y_spine and self.y_axis_side in ("left", "right"):
@@ -160,8 +161,8 @@ class FigureMixin:
         plt.subplots_adjust(
             left=0.04,
             right=0.97,
-            top=0.75,
-            bottom=0.165,
+            top=0.7116,
+            bottom=0.1266,
         )
 
         self._auto_expand_right(ax, inside_ytick_texts + outside_ytick_texts)
@@ -354,8 +355,16 @@ class FigureMixin:
         from matplotlib.lines import Line2D
 
         sp = fig.subplotpars
-        footer_line_y = 0.105
-        caption_y = 0.093  # footer_line_y - 0.012
+        footer_line_y = 0.0666
+        caption_y = 0.0546  # footer_line_y - 0.012
+
+        if getattr(self, "_baseline_relocated", False):
+            # The baseline (and its tick labels) relocated to data y=0, which
+            # vacates the reserve below the axes that footer_line_y/caption_y
+            # are tuned for. Pull the footer up to the axes' bottom edge to
+            # reclaim that space instead of leaving it empty.
+            footer_line_y = sp.bottom
+            caption_y = footer_line_y - 0.012
 
         # Baseline rule spanning subplot width
         fig.add_artist(
