@@ -43,6 +43,7 @@ class LineMixin(DataMixin):
         x_year_tick_interval: Optional[int] = None,
         x_upper_pad: Optional[float] = None,
         align_x_edges: Optional[bool] = None,
+        alpha_map: Optional[Dict[str, float]] = None,
         show: bool = True,
         save_path: Optional[str] = None,
         save_dpi: int = 500,
@@ -84,12 +85,14 @@ class LineMixin(DataMixin):
 
             for idx, (lbl, values) in enumerate(series_list):
                 color = self._series_color(idx, lbl)  # type: ignore[attr-defined]
+                alpha = (alpha_map or {}).get(lbl) if lbl is not None else None
                 if markers:
                     ax.plot(
                         x_positions,
                         values,
                         label=lbl,
                         color=color,
+                        alpha=alpha,
                         linewidth=effective_lw,
                         marker="o",
                         markersize=self._px(2),  # type: ignore[attr-defined]
@@ -101,6 +104,7 @@ class LineMixin(DataMixin):
                         values,
                         label=lbl,
                         color=color,
+                        alpha=alpha,
                         linewidth=effective_lw,
                         zorder=2,
                     )

@@ -44,6 +44,7 @@ class BarMixin(DataMixin):
         x_date_format: Optional[str] = None,
         x_upper_pad: Optional[float] = None,
         align_x_edges: Optional[bool] = None,
+        alpha_map: Optional[Dict[str, float]] = None,
         # output
         show: bool = True,
         save_path: Optional[str] = None,
@@ -85,6 +86,7 @@ class BarMixin(DataMixin):
                 cumulative = np.zeros(len(base_positions))
                 for idx, (lbl, values) in enumerate(series_list):
                     color = self._series_color(idx, lbl)  # type: ignore[attr-defined]
+                    alpha = (alpha_map or {}).get(lbl) if lbl is not None else None
                     ax.bar(
                         base_positions,
                         values,
@@ -92,6 +94,7 @@ class BarMixin(DataMixin):
                         width=effective_bar_width,
                         label=lbl,
                         color=color,
+                        alpha=alpha,
                         zorder=2,
                         align="center",
                     )
@@ -116,12 +119,14 @@ class BarMixin(DataMixin):
                 for idx, (lbl, values) in enumerate(series_list):
                     offset = offset_start + idx * single_width
                     color = self._series_color(idx, lbl)  # type: ignore[attr-defined]
+                    alpha = (alpha_map or {}).get(lbl) if lbl is not None else None
                     ax.bar(
                         base_positions + offset,
                         values,
                         width=single_width,
                         label=lbl,
                         color=color,
+                        alpha=alpha,
                         zorder=2,
                         align="center",
                     )

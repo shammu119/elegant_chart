@@ -17,10 +17,10 @@ from elegant_chart.get_api_data import get_series_df
 enable_logging()
 
 SERIES = {
-    "Guesthouse": 217,
-    "Hotels": 218,
     "Resorts": 219,
+    "Hotels": 218,
     "Safari Vessel": 220,
+    "Guesthouse": 217,
 }
 
 # ── Fetch & merge ─────────────────────────────────────────────────────────────
@@ -75,8 +75,8 @@ chart = ElegantChart(
     align_x_edges=False,
     y_tick_labels_inside=True,
     color_map={
-        "Resorts": "#64D2FF",
-        "Guesthouse": "#E8742A",
+        "Resorts": "#E8742A",
+        "Guesthouse": "#64D2FF",
         "Hotels": "#A78BFA",
         "Safari Vessel": "#34D399",
     },
@@ -87,6 +87,12 @@ chart.line(
     ys=ys,
     markers=False,
     linewidth=1,
+    alpha_map={
+        "Resorts": 0.3,
+        "Guesthouse": 1,
+        "Hotels": 0.3,
+        "Safari Vessel": 0.3,
+    },
     y_formatter=lambda x, pos: f"{x * 100:.0f}",
     show=False,
     save_path="occupancy_rates.png",
