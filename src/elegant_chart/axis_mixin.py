@@ -151,12 +151,9 @@ class AxisMixin:
             ax.yaxis.tick_right()
             ax.yaxis.set_label_position("right")
 
-        if self.y_tick_labels_inside:  # type: ignore[attr-defined]
-            # Custom text labels drawn by _draw_economist_ytick_labels; suppress matplotlib's.
-            ax.tick_params(axis="y", which="both", length=0, labelleft=False, labelright=False)
-        else:
-            # Standard matplotlib labels outside the axes on the active side.
-            ax.tick_params(axis="y", which="both", length=0)
+        # Custom text labels drawn by _draw_economist_ytick_labels (inside) or
+        # _draw_outside_ytick_labels (outside); suppress matplotlib's own.
+        ax.tick_params(axis="y", which="both", length=0, labelleft=False, labelright=False)
 
         if y_tick_step is not None:
             ymin, ymax = ax.get_ylim()
@@ -218,6 +215,80 @@ class AxisMixin:
                 )
             )
         return texts
+
+    def _draw_outside_ytick_labels(
+        self,
+        ax: plt.Axes,
+        secondary: bool = False,
+    ) -> list:
+        """Render y-axis tick labels outside the plot area, right-aligned to a shared margin.
+
+        Each label sits just past its respective edge — to the right of the
+        right edge for the framework's default right-hand axis
+        (``secondary=True``), to the left of the left edge otherwise — with a
+        fixed gap (``_px(10)``, ~8-12px) between the plot edge and the
+        *nearest* label edge, and vertically centered on its tick's data
+        value. Labels are right-aligned (left-aligned for the left axis) to a
+        shared margin set by the widest label, so the column of numbers reads
+        as a single aligned block rather than each label floating at its own
+        width.
+
+        Returns the list of created Text artists so callers (``_auto_expand_right``)
+        can shrink the figure margin if the labels would otherwise bleed off-canvas.
+        """
+        formatter = ax.yaxis.get_major_formatter()
+        locator = ax.yaxis.get_major_locator()
+        ymin, ymax = ax.get_ylim()
+        ticks = locator.tick_values(ymin, ymax)
+        visible_ticks = [t for t in ticks if ymin <= t <= ymax]
+        if not visible_ticks:
+            return []
+
+        labels = [formatter(t, 0) for t in visible_ticks]
+
+        # x is in axes fraction (0=left edge, 1=right edge); y is in data coordinates.
+        x_pos = 1.0 if secondary else 0.0
+        sign = 1 if secondary else -1
+        pad_pt = self._px(10)  # type: ignore[attr-defined]
+        transform = ax.get_yaxis_transform()
+
+        def _draw(offset_pt: float, h_align: str) -> list:
+            return [
+                ax.annotate(
+                    label,
+                    xy=(x_pos, tick_val),
+                    xycoords=transform,
+                    xytext=(sign * offset_pt, 0),
+                    textcoords="offset points",
+                    ha=h_align,
+                    va="center",
+                    fontsize=self._ts("tick_label"),  # type: ignore[attr-defined]
+                    color=self.color_tick,  # type: ignore[attr-defined]
+                    zorder=5,
+                    clip_on=False,
+                )
+                for tick_val, label in zip(visible_ticks, labels)
+            ]
+
+        # First pass: anchor labels at the fixed gap so we can measure their
+        # rendered width; second pass re-anchors them to a shared margin set
+        # by the widest label, right-aligned (left-aligned on the left axis).
+        near_align = "left" if secondary else "right"
+        far_align = "right" if secondary else "left"
+        texts = _draw(pad_pt, near_align)
+
+        fig = ax.get_figure()
+        try:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            max_w_pt = max(t.get_window_extent(renderer).width for t in texts) / fig.dpi * 72.0
+        except Exception:
+            logger.debug("_draw_outside_ytick_labels geometry step failed", exc_info=True)
+            return texts
+
+        for t in texts:
+            t.remove()
+        return _draw(pad_pt + max_w_pt, far_align)
 
     def _apply_numeric_x_axis(
         self,
@@ -362,6 +433,8 @@ class AxisMixin:
         unlabeled, at half the major tick length (set via color/length below;
         major length/width come from the caller's ``ax.tick_params``).
         """
+        self._year_tick_comb_active = True  # type: ignore[attr-defined]
+
         lo, hi = data_bounds
         start_year = mdates.num2date(lo).year
         end_year = mdates.num2date(hi).year

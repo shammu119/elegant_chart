@@ -265,6 +265,7 @@ class DataMixin:
         self._x_upper_pad = x_upper_pad if x_upper_pad is not None else self.x_upper_pad  # type: ignore[attr-defined]
         self._align_x_edges = align_x_edges if align_x_edges is not None else self.align_x_edges  # type: ignore[attr-defined]
         self._x_xlim_explicit = active_xlim is not None  # type: ignore[attr-defined]
+        self._year_tick_comb_active = False  # type: ignore[attr-defined]
 
         if x_plan.is_datetime:
             x_kind = "datetime"

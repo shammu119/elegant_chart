@@ -134,10 +134,18 @@ class FigureMixin:
                 borderaxespad=0.0,
             )
 
-        # Draw inside tick labels only when requested; side mirrors y_axis_side.
+        # Draw y-tick labels inside or outside the plot area, depending on
+        # y_tick_labels_inside; side mirrors y_axis_side. Only the "inside"
+        # texts feed _apply_x_upper_padding (they can crowd the data area);
+        # both feed _auto_expand_right (either can bleed off the figure).
         inside_ytick_texts: list = []
+        outside_ytick_texts: list = []
         if self.y_tick_labels_inside:
             inside_ytick_texts = self._draw_economist_ytick_labels(  # type: ignore[attr-defined]
+                ax, secondary=(self.y_axis_side == "right")
+            )
+        else:
+            outside_ytick_texts = self._draw_outside_ytick_labels(  # type: ignore[attr-defined]
                 ax, secondary=(self.y_axis_side == "right")
             )
 
@@ -155,11 +163,12 @@ class FigureMixin:
             bottom=0.24,
         )
 
-        self._auto_expand_right(ax, inside_ytick_texts)
+        self._auto_expand_right(ax, inside_ytick_texts + outside_ytick_texts)
 
         # Pad the upper x-limit so the rightmost data point / tick label
         # clears the inside y-tick labels living near the right edge.
         self._apply_x_upper_padding(ax, inside_ytick_texts)
+        self._apply_year_comb_left_padding(ax)
 
         # Edge labels: left-align the first major tick, right-align the
         # last, now that xlim/padding and layout have both settled.
@@ -300,6 +309,42 @@ class FigureMixin:
         except Exception:
             logger.debug("_auto_x_upper_pad geometry step failed", exc_info=True)
             return 0.0
+
+    def _apply_year_comb_left_padding(self, ax: plt.Axes) -> None:
+        """Shift the lower xlim left so the first (4-digit) year label can
+        center under its tick without being clipped by the left edge.
+
+        Only runs when ``_apply_year_tick_comb`` was used for this axis
+        (``self._year_tick_comb_active``). Mirrors ``_auto_x_upper_pad``'s
+        pixel-to-data-span conversion, but measures the rendered width of
+        the first major tick label instead of the inside y-tick labels.
+        """
+        if not getattr(self, "_year_tick_comb_active", False):
+            return
+
+        bounds = self._x_data_bounds  # type: ignore[attr-defined]
+        if bounds is None:
+            return
+        lo, hi = bounds
+        span = hi - lo
+        if span <= 0:
+            return
+
+        fig = ax.get_figure()
+        try:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            ax_bbox = ax.get_window_extent(renderer)
+            labels = ax.get_xticklabels()
+            if ax_bbox.width <= 0 or not labels:
+                return
+
+            label_width_px = labels[0].get_window_extent(renderer).width
+            p = (label_width_px / 2) / ax_bbox.width
+            rel_pad = p / (1 - p)
+            ax.set_xlim(lo - rel_pad * span, ax.get_xlim()[1])
+        except Exception:
+            logger.debug("_apply_year_comb_left_padding geometry step failed", exc_info=True)
 
     def _add_footer(self, fig: plt.Figure) -> None:
         if not self.show_footer:

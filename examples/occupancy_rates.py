@@ -73,6 +73,7 @@ chart = ElegantChart(
     caption="Source: MMA Statistics API\nNote: Data is monthly and seasonally adjusted\nData Visualized by Hassan Shammu",
     theme="newsroom_dark",
     align_x_edges=False,
+    y_tick_labels_inside=True,
     color_map={
         "Resorts": "#64D2FF",
         "Guesthouse": "#E8742A",
@@ -90,5 +91,5 @@ chart.line(
     show=False,
     save_path="occupancy_rates.png",
     x_year_tick_interval=5,
-    x_upper_pad=0,
+    x_upper_pad=0.09,
 )
