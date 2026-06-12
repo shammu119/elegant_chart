@@ -141,7 +141,18 @@ class BarMixin(DataMixin):
                             )
 
             # ── axis limits ───────────────────────────────────────────────
-            self._apply_axis_limits(ax, xlim, ylim)  # type: ignore[attr-defined]
+            if stacked:
+                cumulative_total = np.zeros(len(base_positions))
+                for _, values in series_list:
+                    cumulative_total += np.asarray(values, dtype=float)
+                data_y_max = float(cumulative_total.max())
+            else:
+                data_y_max = float(
+                    max(np.asarray(values, dtype=float).max() for _, values in series_list)
+                )
+            self._apply_axis_limits(  # type: ignore[attr-defined]
+                ax, xlim, ylim, data_y_min=0.0, data_y_max=data_y_max, chart_type="bar"
+            )
 
             # ── x axis ────────────────────────────────────────────────────
             self._dispatch_x_axis(

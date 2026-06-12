@@ -124,7 +124,12 @@ class LineMixin(DataMixin):
                         )
 
             # ── axis limits ───────────────────────────────────────────────
-            self._apply_axis_limits(ax, xlim, ylim)  # type: ignore[attr-defined]
+            all_values = [v for _, values in series_list for v in values]
+            data_y_min = float(min(all_values))
+            data_y_max = float(max(all_values))
+            self._apply_axis_limits(  # type: ignore[attr-defined]
+                ax, xlim, ylim, data_y_min=data_y_min, data_y_max=data_y_max, chart_type="line"
+            )
             self._apply_y_axis(  # type: ignore[attr-defined]
                 ax,
                 y_tick_step=y_tick_step,

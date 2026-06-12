@@ -167,6 +167,8 @@ class AxisMixin:
             ax.set_yticks(ticks)
         elif max_y_ticks is not None:
             ax.locator_params(axis="y", nbins=max_y_ticks)
+        elif getattr(self, "_calculated_y_ticks", None) is not None:
+            ax.set_yticks(self._calculated_y_ticks)
 
     def _draw_economist_ytick_labels(
         self,

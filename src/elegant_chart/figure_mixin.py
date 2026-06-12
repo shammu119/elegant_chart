@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 from ._logging import logger
 from ._paths import DEFAULT_LOGO_PATH
+from .axis_utils import calc_y_axis
 from .style_mixin import LINESPACING
 
 # Hairline weight for horizontal gridlines, in design points (scaled via _px()).
@@ -33,16 +34,31 @@ class FigureMixin:
         )
         ax.grid(False, axis="x")
 
-    def _apply_axis_limits(self, ax: plt.Axes, xlim, ylim) -> None:
+    def _apply_axis_limits(
+        self,
+        ax: plt.Axes,
+        xlim,
+        ylim,
+        data_y_min: Optional[float] = None,
+        data_y_max: Optional[float] = None,
+        chart_type: Optional[str] = None,
+        has_top_label: bool = False,
+    ) -> None:
         if xlim is not None:
             ax.set_xlim(xlim)
         elif self.xlim is not None:
             ax.set_xlim(self.xlim)
 
+        self._calculated_y_ticks: Optional[list] = None
+
         if ylim is not None:
             ax.set_ylim(ylim)
         elif self.ylim is not None:
             ax.set_ylim(self.ylim)
+        elif data_y_min is not None and data_y_max is not None and chart_type is not None:
+            result = calc_y_axis(data_y_min, data_y_max, chart_type, has_top_label=has_top_label)
+            ax.set_ylim(result["y_min"], result["y_max"])
+            self._calculated_y_ticks = result["ticks"]
 
         ymin, ymax = ax.get_ylim()
         if ymin == ymax:
