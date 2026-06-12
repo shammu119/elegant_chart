@@ -184,9 +184,6 @@ class AxisMixin:
         just *above* its gridline. Keeping labels inside the plot frees the outer margin
         entirely for data (see FigureMixin._finalize_axes' subplots_adjust).
 
-        The topmost visible label is flipped to ``va="top"`` (sitting just *below* its
-        gridline instead) so it doesn't float up past the plot top into the legend band.
-
         Returns the list of created Text artists so callers can measure their
         rendered extent (e.g. to detect overlap with plotted data).
         """
@@ -195,7 +192,6 @@ class AxisMixin:
         ymin, ymax = ax.get_ylim()
         ticks = locator.tick_values(ymin, ymax)
         visible_ticks = [t for t in ticks if ymin <= t <= ymax]
-        top_tick = max(visible_ticks) if visible_ticks else None
 
         # x is in axes fraction (0=left edge, 1=right edge); y is in data coordinates.
         pad = 0.01
@@ -206,7 +202,6 @@ class AxisMixin:
         texts = []
         for tick_val in visible_ticks:
             label_str = formatter(tick_val, 0)
-            va = "top" if tick_val == top_tick else "bottom"
             texts.append(
                 ax.text(
                     x_pos,
@@ -214,7 +209,7 @@ class AxisMixin:
                     label_str,
                     transform=transform,
                     ha=h_align,
-                    va=va,
+                    va="bottom",
                     fontsize=self._ts("tick_label"),  # type: ignore[attr-defined]
                     color=self.color_tick,  # type: ignore[attr-defined]
                     zorder=5,
@@ -266,7 +261,8 @@ class AxisMixin:
             ax.xaxis.set_minor_locator(AutoMinorLocator(minor_ticks + 1))
             ax.tick_params(
                 axis="x", which="minor", direction="out",
-                length=self._px(1.5), width=self._px(0.4),  # type: ignore[attr-defined]
+                length=self._px(2.5), width=self._px(0.4),  # type: ignore[attr-defined]
+                colors=self.color_subtitle,  # type: ignore[attr-defined]
             )
 
     def _apply_datetime_x_axis(
@@ -338,7 +334,8 @@ class AxisMixin:
             ax.xaxis.set_minor_locator(FixedLocator(minors))
             ax.tick_params(
                 axis="x", which="minor", direction="out",
-                length=self._px(1.5), width=self._px(0.4),  # type: ignore[attr-defined]
+                length=self._px(2.5), width=self._px(0.4),  # type: ignore[attr-defined]
+                colors=self.color_subtitle,  # type: ignore[attr-defined]
             )
 
         # Keep labels horizontal (Economist style); avoid autofmt_xdate(),
@@ -380,7 +377,7 @@ class AxisMixin:
         Thinned categorical ticks, ``AutoDateLocator`` ticks, and step-based
         numeric ticks all commonly land short of the true data bounds, leaving
         the baseline's endpoints unmarked. These two manual segments — sized
-        and colored to match the regular x-ticks (``length=_px(3)``,
+        and colored to match the regular x-ticks (``length=_px(5)``,
         ``width=_px(0.5)``, set via ``ax.tick_params`` in bar/line mixins) —
         sharply anchor the data range regardless of x-axis type. Called last
         from ``_finalize_axes``, after layout has settled, so the axes height
@@ -392,7 +389,7 @@ class AxisMixin:
             fig.canvas.draw()
             renderer = fig.canvas.get_renderer()
             axes_height_px = ax.get_window_extent(renderer).height
-            tick_len_px = self._px(3) / 72.0 * fig.dpi  # type: ignore[attr-defined]
+            tick_len_px = self._px(5) / 72.0 * fig.dpi  # type: ignore[attr-defined]
             if axes_height_px > 0:
                 tick_len_frac = tick_len_px / axes_height_px
         except Exception:
@@ -404,13 +401,35 @@ class AxisMixin:
         # data point rather than out in the empty padding.
         bounds = getattr(self, "_x_data_bounds", None) or ax.get_xlim()
 
-        # x: data coordinates; y: axes fraction (0 = baseline, going downward).
-        transform = ax.get_xaxis_transform()
+        # Skip a boundary tick if a major tick already lands close to it —
+        # avoids a "double tooth" of two near-adjacent ticks at the edges.
+        xlim = ax.get_xlim()
+        span = abs(xlim[1] - xlim[0])
+        edge_margin = span * 0.04 if span > 0 else 0
+        majors = ax.xaxis.get_majorticklocs()
+        bounds = [
+            x for x in bounds
+            if not any(abs(x - m) <= edge_margin for m in majors)
+        ]
+
+        ymin, ymax = ax.get_ylim()
+        if ymin < 0 < ymax:
+            # The baseline has been relocated to data y=0 (see
+            # FigureMixin._finalize_axes), so anchor the boundary ticks there
+            # too, in data coordinates — converting the axes-fraction tick
+            # length to an equivalent data-y delta.
+            transform = ax.transData
+            y0, y1 = 0.0, -tick_len_frac * (ymax - ymin)
+        else:
+            # x: data coordinates; y: axes fraction (0 = baseline, going downward).
+            transform = ax.get_xaxis_transform()
+            y0, y1 = 0.0, -tick_len_frac
+
         for x in bounds:
             ax.add_line(
                 Line2D(
                     [x, x],
-                    [0.0, -tick_len_frac],
+                    [y0, y1],
                     transform=transform,
                     color=self.color_tick,  # type: ignore[attr-defined]
                     linewidth=self._px(0.5),  # type: ignore[attr-defined]

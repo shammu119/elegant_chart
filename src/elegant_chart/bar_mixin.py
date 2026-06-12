@@ -161,7 +161,7 @@ class BarMixin(DataMixin):
                 y_formatter=y_formatter,
             )
             ax.tick_params(axis="y", which="both", length=0, pad=0)
-            ax.tick_params(axis="x", which="major", direction="out", pad=self._px(1.5), length=self._px(3), width=self._px(0.5))
+            ax.tick_params(axis="x", which="major", direction="out", pad=self._px(3), length=self._px(5), width=self._px(0.5))
             ax.margins(x=0)
             if not self._x_xlim_explicit:  # type: ignore[attr-defined]
                 _xlo, _xhi = self._x_data_bounds  # type: ignore[attr-defined]

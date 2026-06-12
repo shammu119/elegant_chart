@@ -16,11 +16,11 @@ We prioritize clean, readable, sans-serif typography:
 ### Minimalist Axes & Grids
 - **Spines**: The top and right spines are strictly removed to reduce "chart junk."
 - **Grid Lines**: Grids should be subtle and sit *behind* the data (`zorder=0`). We generally prefer horizontal-only grid lines, drawn at `GRID_LINEWIDTH` (0.4pt, scaled).
-- **Baseline**: The x-axis spine (zero line) is solid and visually "grounded" — drawn `0.5pt` heavier than the gridlines (`GRID_LINEWIDTH + 0.5`), so it reads as the anchor of the chart.
+- **Baseline**: The x-axis spine (zero line) is solid and visually "grounded" — drawn `0.5pt` heavier than the gridlines (`GRID_LINEWIDTH + 0.5`), so it reads as the anchor of the chart. When the y-range spans zero (`ymin < 0 < ymax`), this spine is repositioned to sit exactly at data `y=0` — so the "0" gridline and the baseline render as a single line, with any data dipping below zero appearing below it.
 - **Boundary ticks**: The baseline carries explicit, visible downward tick marks at the absolute start and end of the x-axis range — independent of whatever interior ticks the locator chooses — to sharply anchor the data range. Interior x-ticks point downward (`direction="out"`).
 - **Ticks**: Ticks are minimal. Y-axis ticks are often hidden entirely (`length=0`) if value labels are used directly on the data elements.
 - **Labels**: Y-axis labels are frequently dropped in standard setups in favor of floating value labels above bars/points.
-- **Tick Labels**: y-axis tick labels sit *inside* the plot area, near the axis edge (right edge by default, mirroring `y_axis_side`), positioned just **above** their gridline — except the topmost label, which sits just **below** its gridline so it doesn't collide with the legend band above. This keeps the outer margin free for data, Economist-style.
+- **Tick Labels**: y-axis tick labels sit *inside* the plot area, near the axis edge (right edge by default, mirroring `y_axis_side`), positioned just **above** their gridline. This keeps the outer margin free for data, Economist-style.
 
 ### Color & Theming
 Palettes are highly intentional and bounded by themes:

@@ -66,6 +66,13 @@ class FigureMixin:
         _sp_lo, _sp_hi = getattr(self, "_x_data_bounds", None) or ax.get_xlim()
         ax.spines["bottom"].set_bounds(_sp_lo, _sp_hi)
 
+        # When the y-range spans zero, pin the baseline to data y=0 so it doubles
+        # as the "0" gridline instead of sitting at ylim[0] with a gap above it.
+        # Data dipping below zero then renders below the line.
+        ymin, ymax = ax.get_ylim()
+        if ymin < 0 < ymax:
+            ax.spines["bottom"].set_position(("data", 0))
+
         if self.show_y_spine and self.y_axis_side in ("left", "right"):
             ax.spines[self.y_axis_side].set_visible(True)
             ax.spines[self.y_axis_side].set_color(self.color_spine)
