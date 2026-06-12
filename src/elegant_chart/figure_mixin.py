@@ -161,7 +161,7 @@ class FigureMixin:
             left=0.04,
             right=0.97,
             top=0.75,
-            bottom=0.19,
+            bottom=0.165,
         )
 
         self._auto_expand_right(ax, inside_ytick_texts + outside_ytick_texts)
