@@ -1,4 +1,5 @@
 # elegant_chart/axis_mixin.py
+import math
 import textwrap
 from datetime import datetime
 from typing import List, Optional, Sequence, Tuple
@@ -16,13 +17,22 @@ from .types import FormatterSpec, YFormatter
 class AxisMixin:
     def _compact_formatter(self, x: float, pos: int) -> str:
         if abs(x) >= 1e9:
-            return f"{x/1e9:.1f}B".rstrip("0").rstrip(".")
+            return f"{self._strip_trailing_zeros(x / 1e9)}B"
         elif abs(x) >= 1e6:
-            return f"{x/1e6:.1f}M".rstrip("0").rstrip(".")
+            return f"{self._strip_trailing_zeros(x / 1e6)}M"
         elif abs(x) >= 1e3:
-            return f"{x/1e3:.1f}K".rstrip("0").rstrip(".")
+            return f"{self._strip_trailing_zeros(x / 1e3)}K"
         else:
-            return f"{x:.0f}"
+            interval = getattr(self, "_y_tick_interval", None)
+            decimals = max(0, -math.floor(math.log10(interval))) if interval else 0
+            formatted = f"{x:.{decimals}f}"
+            if formatted.startswith("-") and float(formatted) == 0:
+                formatted = formatted[1:]
+            return formatted
+
+    @staticmethod
+    def _strip_trailing_zeros(value: float) -> str:
+        return f"{value:.1f}".rstrip("0").rstrip(".")
 
     def _normalize_by_max_formatter(self, x: float, pos: int) -> str:
         max_y = getattr(self, "_max_y_value", None)
@@ -537,15 +547,18 @@ class AxisMixin:
         # data point rather than out in the empty padding.
         bounds = getattr(self, "_x_data_bounds", None) or ax.get_xlim()
 
-        # Skip a boundary tick if a major tick already lands close to it —
-        # avoids a "double tooth" of two near-adjacent ticks at the edges.
+        # Skip a boundary tick if a major tick lands close to — but not
+        # exactly at — it, to avoid a "double tooth" of two near-adjacent
+        # ticks at the edges. An exact coincidence (distance 0, the common
+        # case when the locator picks ticks at the data bounds) is fine: the
+        # boundary tick simply overlaps the major tick, reinforcing it.
         xlim = ax.get_xlim()
         span = abs(xlim[1] - xlim[0])
         edge_margin = span * 0.04 if span > 0 else 0
         majors = ax.xaxis.get_majorticklocs()
         bounds = [
             x for x in bounds
-            if not any(abs(x - m) <= edge_margin for m in majors)
+            if not any(0 < abs(x - m) <= edge_margin for m in majors)
         ]
 
         ymin, ymax = ax.get_ylim()

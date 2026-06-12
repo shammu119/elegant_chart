@@ -151,7 +151,8 @@ class BarMixin(DataMixin):
                     max(np.asarray(values, dtype=float).max() for _, values in series_list)
                 )
             self._apply_axis_limits(  # type: ignore[attr-defined]
-                ax, xlim, ylim, data_y_min=0.0, data_y_max=data_y_max, chart_type="bar"
+                ax, xlim, ylim, data_y_min=0.0, data_y_max=data_y_max, chart_type="bar",
+                has_top_label=show_value_labels,
             )
 
             # ── x axis ────────────────────────────────────────────────────

@@ -128,7 +128,8 @@ class LineMixin(DataMixin):
             data_y_min = float(min(all_values))
             data_y_max = float(max(all_values))
             self._apply_axis_limits(  # type: ignore[attr-defined]
-                ax, xlim, ylim, data_y_min=data_y_min, data_y_max=data_y_max, chart_type="line"
+                ax, xlim, ylim, data_y_min=data_y_min, data_y_max=data_y_max, chart_type="line",
+                has_top_label=show_value_labels,
             )
             self._apply_y_axis(  # type: ignore[attr-defined]
                 ax,

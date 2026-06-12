@@ -50,6 +50,7 @@ class FigureMixin:
             ax.set_xlim(self.xlim)
 
         self._calculated_y_ticks: Optional[list] = None
+        self._y_tick_interval: Optional[float] = None
 
         if ylim is not None:
             ax.set_ylim(ylim)
@@ -59,6 +60,7 @@ class FigureMixin:
             result = calc_y_axis(data_y_min, data_y_max, chart_type, has_top_label=has_top_label)
             ax.set_ylim(result["y_min"], result["y_max"])
             self._calculated_y_ticks = result["ticks"]
+            self._y_tick_interval = result["tick_interval"]
 
         ymin, ymax = ax.get_ylim()
         if ymin == ymax:
