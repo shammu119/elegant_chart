@@ -108,6 +108,7 @@ class ChartBase:
         x_minor_ticks: Optional[int] = None,
         x_date_format: Optional[str] = None,
         x_upper_pad: Optional[float] = None,
+        legend_ncol: Optional[int] = None,
         align_x_edges: bool = True,
         logo_path: Optional[str] = None,
         logo_height_rel: float = 0.12,
@@ -151,6 +152,7 @@ class ChartBase:
         self.x_minor_ticks = x_minor_ticks
         self.x_date_format = x_date_format
         self.x_upper_pad = x_upper_pad
+        self.legend_ncol = legend_ncol
         self.align_x_edges = align_x_edges
 
         # ── logo / footer ──────────────────────────────────────────────────

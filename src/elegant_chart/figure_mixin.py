@@ -50,9 +50,7 @@ class FigureMixin:
             ymax += 0.5
             ax.set_ylim(ymin, ymax)
 
-    def _finalize_axes(
-        self, ax: plt.Axes, rotation: float = 0, has_legend: bool = False
-    ) -> None:
+    def _finalize_axes(self, ax: plt.Axes, rotation: float = 0, has_legend: bool = False) -> None:
         for spine in ax.spines.values():
             spine.set_visible(False)
 
@@ -120,7 +118,10 @@ class FigureMixin:
             # 2-3 column horizontal grid, left-aligned between the subtitle and
             # the plot top; items wrap to a second row only after filling columns.
             handles, labels = ax.get_legend_handles_labels()
-            ncol = max(1, min(3, len(labels)))
+            if self.legend_ncol is not None:
+                ncol = max(1, min(self.legend_ncol, len(labels)))
+            else:
+                ncol = max(1, min(3, len(labels)))
             ax.legend(
                 handles,
                 labels,

@@ -51,7 +51,9 @@ def test_instantiation_defaults():
     assert c.theme == "newsroom_dark"
     assert c.dpi == 500
     assert c.figsize == (2.16, 2.70), "Default figsize must yield 1080×1350 px at save_dpi=500"
-    assert c._figure_scale == pytest.approx(0.6), "_figure_scale must be 0.6 at the default figsize (2.16/3.6)"
+    assert c._figure_scale == pytest.approx(0.6), (
+        "_figure_scale must be 0.6 at the default figsize (2.16/3.6)"
+    )
     assert c.font_scale == 0.9
     assert isinstance(c.palette, list)
     assert all(isinstance(color, str) for color in c.palette), (
@@ -565,6 +567,22 @@ def test_multi_series_legend_uses_multi_column_grid():
     plt.close(fig)
 
 
+def test_legend_ncol_forces_single_row():
+    """legend_ncol=999 should force a single row if there is enough width."""
+    c = make_chart(legend_ncol=999)
+    fig, ax = c.line(
+        x=["A", "B", "C"],
+        ys=[[1, 2, 3], [3, 2, 1]],
+        labels=["Up", "Down"],
+        show=False,
+    )
+    legend = ax.get_legend()
+    assert legend is not None
+    ncols = getattr(legend, "_ncols", None) or getattr(legend, "_ncol", 1)
+    assert ncols == 2
+    plt.close(fig)
+
+
 # ── x-axis boundary ticks ──────────────────────────────────────────────────
 
 
@@ -677,8 +695,11 @@ def test_numeric_minor_ticks_subdivide_major_intervals():
     """x_minor_ticks=1 places one midpoint minor tick per major interval."""
     c = make_chart()
     fig, ax = c.line(
-        x=[0, 1, 2, 3, 4], ys=[0, 1, 2, 3, 4],
-        x_tick_step=1, x_minor_ticks=1, show=False,
+        x=[0, 1, 2, 3, 4],
+        ys=[0, 1, 2, 3, 4],
+        x_tick_step=1,
+        x_minor_ticks=1,
+        show=False,
     )
     majors = ax.xaxis.get_majorticklocs()
     minors = ax.xaxis.get_minorticklocs()
@@ -720,8 +741,11 @@ def test_chart_data_xlsx_export_can_be_disabled(tmp_path):
     out = tmp_path / "chart.png"
     c = make_chart()
     c.bar(
-        x=["Jan", "Feb", "Mar"], ys=[1, 2, 3],
-        show=False, save_path=str(out), export_xlsx=False,
+        x=["Jan", "Feb", "Mar"],
+        ys=[1, 2, 3],
+        show=False,
+        save_path=str(out),
+        export_xlsx=False,
     )
 
     assert not (tmp_path / "chart_data.xlsx").exists()
@@ -734,8 +758,11 @@ def test_chart_data_xlsx_custom_path(tmp_path):
     custom.parent.mkdir()
     c = make_chart()
     c.bar(
-        x=["Jan", "Feb", "Mar"], ys=[1, 2, 3],
-        show=False, save_path=str(out), export_xlsx_path=str(custom),
+        x=["Jan", "Feb", "Mar"],
+        ys=[1, 2, 3],
+        show=False,
+        save_path=str(out),
+        export_xlsx_path=str(custom),
     )
 
     assert custom.exists()

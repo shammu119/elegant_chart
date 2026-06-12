@@ -68,8 +68,8 @@ ys = {label: merged[label].tolist() for label in SERIES if label in merged.colum
 
 # ── Plot ──────────────────────────────────────────────────────────────────────
 chart = ElegantChart(
-    title="Resorts rule, but guesthouses\nare catching up?",
-    subtitle="Occupancy %, 2010–2026",
+    title="Resorts Still Lead but\nGuesthouses Gain Ground",
+    subtitle="Occupancy % 2010–2026",
     caption="Source: Maldives Monetary Authority (MMA) Statistics API\nNote: Data is monthly, seasonally adjusted\nData Visualized by Hassan Shammu",
     theme="newsroom_dark",
     align_x_edges=False,
@@ -80,6 +80,7 @@ chart = ElegantChart(
         "Hotels": "#A78BFA",
         "Safari Vessel": "#34D399",
     },
+    legend_ncol=4,
 )
 
 chart.line(
