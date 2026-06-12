@@ -9,6 +9,7 @@ cached under `data/` (see `elegant_chart.get_api_data`).
 """
 
 import pandas as pd
+from statsmodels.tsa.seasonal import STL
 
 from elegant_chart import ElegantChart, enable_logging
 from elegant_chart.get_api_data import get_series_df
@@ -52,6 +53,16 @@ merged = merged.sort_values("date").reset_index(drop=True)
 present_labels = [label for label in SERIES if label in merged.columns]
 merged = merged.dropna(subset=present_labels, how="any")
 
+# ── Seasonal adjustment ─────────────────────────────────────────────────────
+# Remove the recurring yearly pattern (e.g. holiday-season peaks) via STL,
+# leaving the trend + residual so underlying changes in occupancy are clearer.
+SEASONALLY_ADJUST = True
+if SEASONALLY_ADJUST:
+    for label in present_labels:
+        series = merged.set_index("date")[label]
+        result = STL(series, period=12, robust=True).fit()
+        merged[label] = (series - result.seasonal).to_numpy()
+
 x = merged["date"].tolist()
 ys = {label: merged[label].tolist() for label in SERIES if label in merged.columns}
 
@@ -59,10 +70,10 @@ ys = {label: merged[label].tolist() for label in SERIES if label in merged.colum
 chart = ElegantChart(
     title="Maldives Occupancy Rates",
     subtitle="Occupancy % by accommodation type",
-    caption="Source: MMA Statistics API\nData Visualized by Hassan Shammu",
+    caption="Source: MMA Statistics API\nNote: Data is monthly and seasonally adjusted\nData Visualized by Hassan Shammu",
     theme="newsroom_dark",
     x_minor_ticks=1,
-    align_x_edges=True,
+    align_x_edges=False,
     color_map={
         "Resorts": "#64D2FF",
         "Guesthouse": "#E8742A",
