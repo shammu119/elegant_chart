@@ -1,12 +1,13 @@
 # elegant_chart/axis_mixin.py
 import textwrap
+from datetime import datetime
 from typing import List, Optional, Sequence, Tuple
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
-from matplotlib.ticker import AutoMinorLocator, FixedLocator, FuncFormatter
+from matplotlib.ticker import AutoMinorLocator, FixedFormatter, FixedLocator, FuncFormatter
 
 from ._logging import logger
 from .types import FormatterSpec, YFormatter
@@ -343,6 +344,66 @@ class AxisMixin:
         # left/center/right alignment of the edge labels is handled by
         # _align_x_edge_labels() once layout has settled.
         ax.tick_params(axis="x", labelrotation=0)
+
+    def _apply_year_tick_comb(
+        self,
+        ax: plt.Axes,
+        data_bounds: Tuple[float, float],
+        year_interval: int = 5,
+    ) -> None:
+        """Render a year-based tick comb for datetime x-axes.
+
+        Major ticks land on round multiples of ``year_interval`` (e.g. every
+        5 years), except the first and last major ticks, which anchor to the
+        actual data start/end dates rather than rounding to the nearest grid
+        year — so the axis never extends past the real data range. The first
+        major label is a full 4-digit year; subsequent major labels show only
+        the 2-digit year suffix. Minor ticks mark every intervening year,
+        unlabeled, at half the major tick length (set via color/length below;
+        major length/width come from the caller's ``ax.tick_params``).
+        """
+        lo, hi = data_bounds
+        start_year = mdates.num2date(lo).year
+        end_year = mdates.num2date(hi).year
+
+        if start_year == end_year:
+            major_years = [start_year]
+        else:
+            first_round = ((start_year // year_interval) + 1) * year_interval
+            interior_years = [
+                y for y in range(first_round, end_year, year_interval)
+                if start_year < y < end_year
+            ]
+            major_years = [start_year, *interior_years, end_year]
+
+        major_ticks: List[float] = []
+        major_labels: List[str] = []
+        for i, year in enumerate(major_years):
+            if year == start_year:
+                pos = lo
+            elif year == end_year:
+                pos = hi
+            else:
+                pos = mdates.date2num(datetime(year, 1, 1))
+            major_ticks.append(pos)
+            major_labels.append(str(year) if i == 0 else f"{year % 100:02d}")
+
+        ax.xaxis.set_major_locator(FixedLocator(major_ticks))
+        ax.xaxis.set_major_formatter(FixedFormatter(major_labels))
+        ax.tick_params(axis="x", labelrotation=0)
+
+        minor_ticks = [
+            pos for year in range(start_year + 1, end_year)
+            if lo < (pos := mdates.date2num(datetime(year, 1, 1))) < hi
+            and pos not in major_ticks
+        ]
+        if minor_ticks:
+            ax.xaxis.set_minor_locator(FixedLocator(minor_ticks))
+            ax.tick_params(
+                axis="x", which="minor", direction="out",
+                length=self._px(2.5), width=self._px(0.4),  # type: ignore[attr-defined]
+                colors=self.color_subtitle,  # type: ignore[attr-defined]
+            )
 
     def _align_x_edge_labels(self, ax: plt.Axes) -> None:
         """Left-align the first major x-tick label, right-align the last.

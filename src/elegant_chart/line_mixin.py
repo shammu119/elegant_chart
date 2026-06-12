@@ -40,6 +40,7 @@ class LineMixin(DataMixin):
         ylim: Optional[Tuple[float, float]] = None,
         x_minor_ticks: Optional[int] = None,
         x_date_format: Optional[str] = None,
+        x_year_tick_interval: Optional[int] = None,
         x_upper_pad: Optional[float] = None,
         align_x_edges: Optional[bool] = None,
         show: bool = True,
@@ -149,6 +150,7 @@ class LineMixin(DataMixin):
                 tick_label_pad=tick_label_pad,
                 x_formatter=x_formatter,
                 x_date_format=x_date_format,
+                x_year_tick_interval=x_year_tick_interval,
             )
 
             # ── finalize + output ─────────────────────────────────────────

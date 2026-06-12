@@ -296,6 +296,7 @@ class DataMixin:
         tick_label_pad: Optional[float],
         x_formatter: Optional[FormatterSpec],
         x_date_format: Optional[str] = None,
+        x_year_tick_interval: Optional[int] = None,
     ) -> None:
         """Render x-axis ticks/labels for categorical, datetime, or numeric axes.
 
@@ -329,16 +330,23 @@ class DataMixin:
             )
 
         elif x_plan.is_datetime:
-            resolved_date_format = (
-                x_date_format if x_date_format is not None
-                else getattr(self, "x_date_format", None)
-            )
-            self._apply_datetime_x_axis(  # type: ignore[attr-defined]
-                ax, x, max_x_ticks=max_x_ticks,
-                data_bounds=self._x_data_bounds,  # type: ignore[attr-defined]
-                minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
-                date_format=resolved_date_format,
-            )
+            if x_year_tick_interval is not None:
+                self._apply_year_tick_comb(  # type: ignore[attr-defined]
+                    ax,
+                    data_bounds=self._x_data_bounds,  # type: ignore[attr-defined]
+                    year_interval=x_year_tick_interval,
+                )
+            else:
+                resolved_date_format = (
+                    x_date_format if x_date_format is not None
+                    else getattr(self, "x_date_format", None)
+                )
+                self._apply_datetime_x_axis(  # type: ignore[attr-defined]
+                    ax, x, max_x_ticks=max_x_ticks,
+                    data_bounds=self._x_data_bounds,  # type: ignore[attr-defined]
+                    minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
+                    date_format=resolved_date_format,
+                )
 
         else:
             self._apply_numeric_x_axis(  # type: ignore[attr-defined]

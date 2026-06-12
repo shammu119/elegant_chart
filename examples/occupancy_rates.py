@@ -89,5 +89,6 @@ chart.line(
     y_formatter=lambda x, pos: f"{x * 100:.0f}",
     show=False,
     save_path="occupancy_rates.png",
-    x_date_format="%Y",
+    x_year_tick_interval=5,
+    x_upper_pad=0,
 )
