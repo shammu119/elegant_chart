@@ -91,14 +91,14 @@ class FigureMixin:
         )
 
         if self.title:
-            ax.text(0.0, 1.24, self.title, **_title_kwargs)
+            ax.text(0.0, 1.234, self.title, **_title_kwargs)
 
         if self.subtitle:
             # Single multi-line text block; leading is governed by linespacing
             # rather than a hand-stepped per-line offset.
             ax.text(
                 0.0,
-                1.20,
+                1.220,
                 self.subtitle,
                 transform=ax.transAxes,
                 fontsize=self._ts("subtitle"),
@@ -124,13 +124,14 @@ class FigureMixin:
                 handles,
                 labels,
                 loc="upper left",
-                bbox_to_anchor=(0.0, 1.10),
+                bbox_to_anchor=(0.0, 1.15),
                 ncol=ncol,
                 frameon=False,
                 fontsize=self._ts("legend"),
+                handlelength=self._px(1.4),
                 handletextpad=self._px(0.4),
                 columnspacing=self._px(1.0),
-                labelspacing=0.15,
+                labelspacing=0.1,
                 borderaxespad=0.0,
             )
 
@@ -159,8 +160,8 @@ class FigureMixin:
         plt.subplots_adjust(
             left=0.04,
             right=0.97,
-            top=0.76,
-            bottom=0.24,
+            top=0.75,
+            bottom=0.19,
         )
 
         self._auto_expand_right(ax, inside_ytick_texts + outside_ytick_texts)
@@ -353,8 +354,8 @@ class FigureMixin:
         from matplotlib.lines import Line2D
 
         sp = fig.subplotpars
-        footer_line_y = 0.155
-        caption_y = 0.143  # footer_line_y - 0.012
+        footer_line_y = 0.105
+        caption_y = 0.093  # footer_line_y - 0.012
 
         # Baseline rule spanning subplot width
         fig.add_artist(
