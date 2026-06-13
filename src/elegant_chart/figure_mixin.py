@@ -377,14 +377,6 @@ class FigureMixin:
         footer_line_y = 0.0666
         caption_y = 0.0546  # footer_line_y - 0.012
 
-        if getattr(self, "_baseline_relocated", False):
-            # The baseline (and its tick labels) relocated to data y=0, which
-            # vacates the reserve below the axes that footer_line_y/caption_y
-            # are tuned for. Pull the footer up to the axes' bottom edge to
-            # reclaim that space instead of leaving it empty.
-            footer_line_y = sp.bottom
-            caption_y = footer_line_y - 0.012
-
         if self.caption:
             caption_text = fig.text(
                 sp.left,
@@ -410,7 +402,7 @@ class FigureMixin:
                 renderer = fig.canvas.get_renderer()
                 bbox = caption_text.get_window_extent(renderer)
                 fig_h_px = fig.get_size_inches()[1] * fig.dpi
-                pad_px = self._px(3.0)
+                pad_px = self._px(20.0)
                 overflow = (pad_px - bbox.y0) / fig_h_px
                 if overflow > 0:
                     footer_line_y += overflow
