@@ -95,7 +95,7 @@ chart.line(
         "Safari Vessel": 0.3,
     },
     y_formatter=lambda x, pos: f"{x * 100:.0f}",
-    # ylim=(0, 1),
+    ylim=(0, 1),
     show=False,
     save_path="occupancy_rates.png",
     x_year_tick_interval=5,

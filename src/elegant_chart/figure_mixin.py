@@ -385,20 +385,8 @@ class FigureMixin:
             footer_line_y = sp.bottom
             caption_y = footer_line_y - 0.012
 
-        # Baseline rule spanning subplot width
-        fig.add_artist(
-            Line2D(
-                [sp.left, sp.right],
-                [footer_line_y, footer_line_y],
-                transform=fig.transFigure,
-                color=self.color_spine,
-                linewidth=self._px(0.5),
-                clip_on=False,
-            )
-        )
-
         if self.caption:
-            fig.text(
+            caption_text = fig.text(
                 sp.left,
                 caption_y,
                 self.caption,
@@ -410,6 +398,39 @@ class FigureMixin:
                 fontweight=self.font_caption_weight,
                 linespacing=LINESPACING,
             )
+
+            # A tall (multi-line) caption can extend below the figure's
+            # bottom edge at the default caption_y, clipping its last
+            # line(s). Measure its rendered height and, if it overflows,
+            # shift the footer rule/caption up — and shrink the axes by the
+            # same amount, so the gap to the x-tick labels is preserved —
+            # just enough to bring it back on-canvas.
+            try:
+                fig.canvas.draw()
+                renderer = fig.canvas.get_renderer()
+                bbox = caption_text.get_window_extent(renderer)
+                fig_h_px = fig.get_size_inches()[1] * fig.dpi
+                pad_px = self._px(3.0)
+                overflow = (pad_px - bbox.y0) / fig_h_px
+                if overflow > 0:
+                    footer_line_y += overflow
+                    caption_y += overflow
+                    caption_text.set_y(caption_y)
+                    plt.subplots_adjust(bottom=sp.bottom + overflow)
+            except Exception:
+                logger.debug("_add_footer caption overflow check failed", exc_info=True)
+
+        # Baseline rule spanning subplot width
+        fig.add_artist(
+            Line2D(
+                [sp.left, sp.right],
+                [footer_line_y, footer_line_y],
+                transform=fig.transFigure,
+                color=self.color_spine,
+                linewidth=self._px(0.5),
+                clip_on=False,
+            )
+        )
 
         if self.logo_path is None:
             # Default: bundled package logo, resolved independent of CWD.
