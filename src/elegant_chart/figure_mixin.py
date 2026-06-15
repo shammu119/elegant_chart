@@ -23,15 +23,18 @@ class FigureMixin:
         return fig, ax
 
     def _configure_grid(self, ax: plt.Axes) -> None:
-        ax.grid(
-            True,
-            axis="y",
-            linestyle="-",
-            linewidth=self._px(GRID_LINEWIDTH),
-            color=self.grid_color,
-            alpha=0.9,
-            zorder=0,
-        )
+        if self.show_y_axis:
+            ax.grid(
+                True,
+                axis="y",
+                linestyle="-",
+                linewidth=self._px(GRID_LINEWIDTH),
+                color=self.grid_color,
+                alpha=0.9,
+                zorder=0,
+            )
+        else:
+            ax.grid(False, axis="y")
         ax.grid(False, axis="x")
 
     def _apply_axis_limits(
@@ -76,11 +79,14 @@ class FigureMixin:
         ax.spines["bottom"].set_color(self.color_spine)
         # Baseline is grounded: 0.5pt heavier than the gridlines it anchors.
         ax.spines["bottom"].set_linewidth(self._px(GRID_LINEWIDTH + 0.5))
-        # Spine spans exactly the data x-range — not ax.get_xlim(), which may
-        # carry extra upper padding (see _apply_x_upper_padding) so the last
-        # data point's label can clear the inside y-tick labels.
+        # Spine spans the data x-range — not ax.get_xlim(), which may carry
+        # extra upper padding (see _apply_x_upper_padding) so the last data
+        # point's label can clear the inside y-tick labels. For bar charts,
+        # also widen by _bar_half_width so the baseline spans the full visual
+        # extent of the edge bars rather than stopping at their centers.
         _sp_lo, _sp_hi = getattr(self, "_x_data_bounds", None) or ax.get_xlim()
-        ax.spines["bottom"].set_bounds(_sp_lo, _sp_hi)
+        _half_w = getattr(self, "_bar_half_width", None) or 0.0
+        ax.spines["bottom"].set_bounds(_sp_lo - _half_w, _sp_hi + _half_w)
 
         # When the y-range spans zero, pin the baseline to data y=0 so it doubles
         # as the "0" gridline instead of sitting at ylim[0] with a gap above it.
@@ -161,14 +167,15 @@ class FigureMixin:
         # both feed _auto_expand_right (either can bleed off the figure).
         inside_ytick_texts: list = []
         outside_ytick_texts: list = []
-        if self.y_tick_labels_inside:
-            inside_ytick_texts = self._draw_economist_ytick_labels(  # type: ignore[attr-defined]
-                ax, secondary=(self.y_axis_side == "right")
-            )
-        else:
-            outside_ytick_texts = self._draw_outside_ytick_labels(  # type: ignore[attr-defined]
-                ax, secondary=(self.y_axis_side == "right")
-            )
+        if self.show_y_axis:
+            if self.y_tick_labels_inside:
+                inside_ytick_texts = self._draw_economist_ytick_labels(  # type: ignore[attr-defined]
+                    ax, secondary=(self.y_axis_side == "right")
+                )
+            else:
+                outside_ytick_texts = self._draw_outside_ytick_labels(  # type: ignore[attr-defined]
+                    ax, secondary=(self.y_axis_side == "right")
+                )
 
         self._draw_annotations(ax)
 
@@ -268,8 +275,29 @@ class FigureMixin:
         except Exception:
             logger.debug("_auto_expand_right geometry step failed", exc_info=True)
 
+    def _auto_expand_left(self, ax: plt.Axes) -> None:
+        """Re-adjust the left margin to fit outside y-tick labels (e.g. horizontal
+        bar category names), which the default ``left=0.04`` margin assumes away.
+        """
+        fig = ax.get_figure()
+        labels = ax.get_yticklabels()
+        if not labels:
+            return
+        try:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            fig_w_in = fig.get_size_inches()[0]
+            min_x0_in = min(t.get_window_extent(renderer).x0 for t in labels) / fig.dpi
+            overflow_frac = -min_x0_in / fig_w_in
+            if overflow_frac > 0:
+                new_left = fig.subplotpars.left + overflow_frac + 0.01
+                plt.subplots_adjust(left=min(new_left, 0.5))
+        except Exception:
+            logger.debug("_auto_expand_left geometry step failed", exc_info=True)
+
     def _apply_x_upper_padding(self, ax: plt.Axes, inside_ytick_texts: list) -> None:
-        """Pad the upper x-limit so the last data point clears the inside y-tick labels.
+        """Pad the x-limits so the last data point clears the inside y-tick labels
+        and, for bar charts, so the edge bars aren't clipped by the axes boundary.
 
         ``self._x_data_bounds`` (set by ``bar()``/``line()``) holds the *true*
         data range — the spine, boundary ticks, and edge tick labels all
@@ -277,6 +305,12 @@ class FigureMixin:
         that empty space, not data, sits under the inside y-tick labels on
         the right edge. Skipped entirely when the caller passed an explicit
         ``xlim`` (``self._x_xlim_explicit``) — that range is authoritative.
+
+        ``self._bar_half_width`` (set by ``bar()``) is half the rendered bar
+        width: each edge bar's center sits at a data bound, so its outer half
+        extends that far past the bound. Without this padding, the edge bars
+        get clipped to half their width and appear misaligned under their
+        x-tick labels.
         """
         if self._x_xlim_explicit:  # type: ignore[attr-defined]
             return
@@ -295,8 +329,13 @@ class FigureMixin:
             rel_pad = self._auto_x_upper_pad(ax, inside_ytick_texts)
             logger.debug("Auto-measured x upper pad: %.4f (relative to data span)", rel_pad)
 
-        if rel_pad > 0:
-            ax.set_xlim(lo, hi + rel_pad * span)
+        upper_pad = rel_pad * span if rel_pad else 0.0
+        half_w = getattr(self, "_bar_half_width", None) or 0.0
+
+        new_lo = lo - half_w
+        new_hi = hi + max(upper_pad, half_w)
+        if new_lo != lo or new_hi != hi:
+            ax.set_xlim(new_lo, new_hi)
 
     def _auto_x_upper_pad(self, ax: plt.Axes, inside_ytick_texts: list) -> float:
         """Measure how far the inside y-tick labels reach left of the axes' right edge.

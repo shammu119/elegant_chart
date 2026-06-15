@@ -528,7 +528,15 @@ class AxisMixin:
         sharply anchor the data range regardless of x-axis type. Called last
         from ``_finalize_axes``, after layout has settled, so the axes height
         used to convert the point-based tick length to an axes-fraction is final.
+
+        Skipped for bar charts (signalled by ``_bar_half_width`` being set):
+        every bar already sits on its own major tick, including the first and
+        last, so a separate boundary tick at the bar's outer edge would just
+        add a redundant extra tooth next to the edge bar.
         """
+        if getattr(self, "_bar_half_width", None) is not None:
+            return
+
         fig = ax.get_figure()
         tick_len_frac = 0.02  # fallback if renderer geometry is unavailable
         try:
@@ -544,8 +552,12 @@ class AxisMixin:
         # Anchor at the *data* bounds, not ax.get_xlim() — the upper xlim is
         # padded (see FigureMixin._finalize_axes) to clear the inside y-tick
         # labels, so the right boundary tick should sit at the true last
-        # data point rather than out in the empty padding.
-        bounds = getattr(self, "_x_data_bounds", None) or ax.get_xlim()
+        # data point rather than out in the empty padding. For bar charts,
+        # widen by _bar_half_width to match the spine, which now spans the
+        # full visual extent of the edge bars (see FigureMixin._finalize_axes).
+        _data_bounds = getattr(self, "_x_data_bounds", None) or ax.get_xlim()
+        _half_w = getattr(self, "_bar_half_width", None) or 0.0
+        bounds = (_data_bounds[0] - _half_w, _data_bounds[1] + _half_w)
 
         # Skip a boundary tick if a major tick lands close to — but not
         # exactly at — it, to avoid a "double tooth" of two near-adjacent

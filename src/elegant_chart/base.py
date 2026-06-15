@@ -38,6 +38,10 @@ Axis / tick
                                     the rendered inside y-tick label widths)
     align_x_edges                — bool  (left-align the first x tick label and
                                     right-align the last, instead of centering)
+    show_y_axis                   — bool  (default True; when False, suppresses
+                                    the y gridlines and y-tick labels entirely —
+                                    useful when value labels on the data itself
+                                    make the y-axis redundant)
 
 Logo / footer
     logo_path, logo_height_rel, logo_margin_rel — logo_path=None (default) uses
@@ -69,6 +73,8 @@ during _finalize_axes)
     _x_minor_ticks               — int | None
     _x_upper_pad                 — float | None
     _align_x_edges                — bool
+    _bar_half_width               — float | None  (set by bar() so the edge
+                                    bars aren't clipped by the x-axis limits)
 """
 
 from __future__ import annotations
@@ -116,6 +122,7 @@ class ChartBase:
         show_footer: bool = True,
         y_axis_side: str = "right",
         y_tick_labels_inside: bool = True,
+        show_y_axis: bool = True,
         show_y_spine: bool = False,
         annotations: Optional[list[dict[str, Any]]] = None,
     ) -> None:
@@ -162,6 +169,7 @@ class ChartBase:
         self.show_footer = show_footer
         self.y_axis_side = y_axis_side
         self.y_tick_labels_inside = y_tick_labels_inside
+        self.show_y_axis = show_y_axis
         self.show_y_spine = show_y_spine
 
         # ── internal / scratch ────────────────────────────────────────────
@@ -180,6 +188,7 @@ class ChartBase:
         self._x_upper_pad: Optional[float] = self.x_upper_pad
         self._align_x_edges: bool = self.align_x_edges
         self._x_xlim_explicit: bool = False
+        self._bar_half_width: Optional[float] = None
 
         # Populate palette, colors, fonts, and rc overlay
         self._apply_base_style()  # type: ignore[attr-defined]  # provided by StyleMixin

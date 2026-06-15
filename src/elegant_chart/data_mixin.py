@@ -266,6 +266,7 @@ class DataMixin:
         self._align_x_edges = align_x_edges if align_x_edges is not None else self.align_x_edges  # type: ignore[attr-defined]
         self._x_xlim_explicit = active_xlim is not None  # type: ignore[attr-defined]
         self._year_tick_comb_active = False  # type: ignore[attr-defined]
+        self._bar_half_width = None  # type: ignore[attr-defined]
 
         if x_plan.is_datetime:
             x_kind = "datetime"
@@ -448,18 +449,23 @@ class DataMixin:
 
         For categorical axes (positions are integers 0..n-1, spacing=1.0) the width
         scales up slightly with bar count so denser charts use the available space.
-        For numeric/datetime axes the width is 80 % of the minimum inter-bar gap,
-        which naturally adapts to irregular spacing and very tight datetime series.
+        For numeric/datetime axes the width is the same density-based fraction of
+        the smallest inter-bar gap, which naturally adapts to irregular spacing and
+        very tight datetime series while keeping sparse series (e.g. a handful of
+        yearly bars) from rendering as near-touching blocks.
         """
+        if n <= 4:
+            fraction = 0.50
+        elif n <= 8:
+            fraction = 0.60
+        elif n <= 15:
+            fraction = 0.72
+        else:
+            fraction = 0.82
+
         if x_plan.is_categorical:
-            if n <= 4:
-                return 0.50
-            if n <= 8:
-                return 0.60
-            if n <= 15:
-                return 0.72
-            return 0.82
-        # Numeric or datetime — use 80 % of smallest gap between consecutive points
+            return fraction
+        # Numeric or datetime — scale by the smallest gap between consecutive points
         positions = x_plan.positions
         if len(positions) < 2:
             return 0.7
@@ -467,7 +473,7 @@ class DataMixin:
         positive_gaps = gaps[gaps > 0]
         if positive_gaps.size == 0:
             return 0.7
-        return float(positive_gaps.min()) * 0.8
+        return float(positive_gaps.min()) * fraction
 
     # ── last-render cache ─────────────────────────────────────────────────
 

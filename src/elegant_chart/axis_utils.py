@@ -83,13 +83,16 @@ def calc_y_axis(
 
     interval, y_min, y_max, n_ticks = best
 
-    if has_top_label:
-        y_max += interval
-        n_ticks += 1
-
     ticks = [_round_clean(y_min + i * interval) for i in range(n_ticks)]
     y_min = ticks[0]
     y_max = ticks[-1]
+
+    if has_top_label:
+        # Extend the axis limit beyond the last tick to leave headroom for a
+        # value label above the highest bar/point, without adding another
+        # labeled gridline at that position (which would float above the
+        # plot area — see _draw_economist_ytick_labels).
+        y_max = _round_clean(y_max + interval)
 
     return {
         "y_min": y_min,

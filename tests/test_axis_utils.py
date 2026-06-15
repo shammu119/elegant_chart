@@ -75,8 +75,11 @@ def test_has_top_label_extends_y_max_by_one_interval():
     with_label = calc_y_axis(0, 83, "line", has_top_label=True)
     assert with_label["tick_interval"] == base["tick_interval"]
     assert with_label["y_max"] == base["y_max"] + base["tick_interval"]
-    assert len(with_label["ticks"]) == len(base["ticks"]) + 1
-    _assert_evenly_spaced(with_label)
+    # The extra headroom is axis-limit only — ticks (gridlines/labels) are
+    # unchanged, so no extra label floats above the plot area.
+    assert with_label["ticks"] == base["ticks"]
+    assert with_label["ticks"][-1] < with_label["y_max"]
+    _assert_evenly_spaced(base)
 
 
 def test_touch_avoidance_bumps_y_max():
