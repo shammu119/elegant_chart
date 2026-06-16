@@ -2,7 +2,7 @@
 """
 ElegantChart — the main public class.
 
-MRO (left-to-right): StyleMixin → AxisMixin → FigureMixin → LineMixin → BarMixin → ChartBase
+MRO (left-to-right): StyleMixin → AxisMixin → FigureMixin → LineMixin → BarMixin → BumpMixin → ChartBase
 ``__init__`` resolves to ``ChartBase.__init__``, which populates the shared attribute contract
 and then calls ``self._apply_base_style()`` (supplied by StyleMixin).
 """
@@ -15,6 +15,7 @@ from .axis_mixin import AxisMixin
 from .figure_mixin import FigureMixin
 from .line_mixin import LineMixin
 from .bar_mixin import BarMixin
+from .bump_mixin import BumpMixin
 
 
 class ElegantChart(
@@ -23,6 +24,7 @@ class ElegantChart(
     FigureMixin,
     LineMixin,
     BarMixin,
+    BumpMixin,
     ChartBase,
 ):
     """

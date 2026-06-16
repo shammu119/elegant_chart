@@ -1,6 +1,6 @@
 # elegant_chart/figure_mixin.py
 import os
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Sequence, Tuple
 
 import matplotlib.pyplot as plt
 
@@ -275,9 +275,13 @@ class FigureMixin:
         except Exception:
             logger.debug("_auto_expand_right geometry step failed", exc_info=True)
 
-    def _auto_expand_left(self, ax: plt.Axes) -> None:
+    def _auto_expand_left(self, ax: plt.Axes, extra_reserve: float = 0.0) -> None:
         """Re-adjust the left margin to fit outside y-tick labels (e.g. horizontal
         bar category names), which the default ``left=0.04`` margin assumes away.
+
+        ``extra_reserve`` is an additional figure-fraction width (e.g. for
+        per-row logos drawn just outside the labels via ``_add_y_tick_logos``)
+        reserved beyond the labels themselves.
         """
         fig = ax.get_figure()
         labels = ax.get_yticklabels()
@@ -288,12 +292,64 @@ class FigureMixin:
             renderer = fig.canvas.get_renderer()
             fig_w_in = fig.get_size_inches()[0]
             min_x0_in = min(t.get_window_extent(renderer).x0 for t in labels) / fig.dpi
-            overflow_frac = -min_x0_in / fig_w_in
+            overflow_frac = -min_x0_in / fig_w_in + extra_reserve
             if overflow_frac > 0:
                 new_left = fig.subplotpars.left + overflow_frac + 0.01
                 plt.subplots_adjust(left=min(new_left, 0.5))
         except Exception:
             logger.debug("_auto_expand_left geometry step failed", exc_info=True)
+
+    def _add_y_tick_logos(
+        self,
+        ax: plt.Axes,
+        base_positions: Any,
+        x: Sequence[Any],
+        logo_map: Dict[str, str],
+        icon_size_pt: float,
+        gap_pt: float,
+    ) -> None:
+        """Draw a small logo image just to the right of each y-tick label
+        (between the label and the axis) whose category (from ``x``) has an
+        entry in ``logo_map`` (label -> image path).
+
+        Sized off the final (post ``_auto_expand_left``) tick-label positions.
+        Callers must reserve room for the icon between the label and the axis
+        by adding ``icon_size_pt + gap_pt`` to the y-tick ``pad`` *and* passing
+        the same amount as ``extra_reserve`` to ``_auto_expand_left``
+        beforehand.
+        """
+        fig = ax.get_figure()
+        try:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            fig_w_px, fig_h_px = fig.get_size_inches() * fig.dpi
+            icon_size_px = icon_size_pt * fig.dpi / 72.0
+            gap_px = gap_pt * fig.dpi / 72.0
+
+            for pos, label, text in zip(base_positions, x, ax.get_yticklabels()):
+                path = logo_map.get(str(label))
+                if not path or not os.path.exists(path):
+                    continue
+                try:
+                    img = plt.imread(path)
+                except Exception:
+                    continue
+
+                bbox = text.get_window_extent(renderer)
+                icon_left_px = bbox.x1 + gap_px
+                center_y_px = (bbox.y0 + bbox.y1) / 2.0
+                icon_bottom_px = center_y_px - icon_size_px / 2.0
+
+                icon_ax = fig.add_axes([
+                    icon_left_px / fig_w_px,
+                    icon_bottom_px / fig_h_px,
+                    icon_size_px / fig_w_px,
+                    icon_size_px / fig_h_px,
+                ])
+                icon_ax.imshow(img)
+                icon_ax.axis("off")
+        except Exception:
+            logger.debug("_add_y_tick_logos geometry step failed", exc_info=True)
 
     def _apply_x_upper_padding(self, ax: plt.Axes, inside_ytick_texts: list) -> None:
         """Pad the x-limits so the last data point clears the inside y-tick labels

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(python examples/series_101_domestic_airlines_2023.py)",
+      "Bash(python examples/series_101_top10_airlines_yearly.py)"
     ]
   }
 }

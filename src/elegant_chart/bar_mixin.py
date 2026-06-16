@@ -37,6 +37,7 @@ class BarMixin(DataMixin):
         max_label_width: Optional[int] = None,
         label_width_strategy: str = "wrap",
         tick_label_pad: Optional[float] = None,
+        y_tick_logos: Optional[Dict[str, str]] = None,
         # axis controls
         y_tick_step: Optional[float] = None,
         max_y_ticks: Optional[int] = None,
@@ -75,6 +76,7 @@ class BarMixin(DataMixin):
                 y_formatter=y_formatter,
                 ylim=ylim,
                 alpha_map=alpha_map,
+                y_tick_logos=y_tick_logos,
                 show=show,
                 save_path=save_path,
                 save_dpi=save_dpi,
@@ -248,6 +250,7 @@ class BarMixin(DataMixin):
         y_formatter: Optional[FormatterSpec],
         ylim: Optional[Tuple[float, float]],
         alpha_map: Optional[Dict[str, float]],
+        y_tick_logos: Optional[Dict[str, str]] = None,
         show: bool,
         save_path: Optional[str],
         save_dpi: int,
@@ -270,6 +273,9 @@ class BarMixin(DataMixin):
         base_positions = x_plan.positions
         n_series = len(series_list)
         val_fmt = self._build_formatter(y_formatter if y_formatter is not None else self.y_formatter)  # type: ignore[attr-defined]
+        icon_size_pt = self._ts("tick_label") * 1.6  # type: ignore[attr-defined]
+        gap_pt = self._px(3)  # type: ignore[attr-defined]
+        logo_pad_pt = (icon_size_pt + gap_pt) if y_tick_logos else 0.0
 
         with rc_context(self._rc):  # type: ignore[attr-defined]
             fig, ax = self._init_figure_and_axes()  # type: ignore[attr-defined]
@@ -324,7 +330,7 @@ class BarMixin(DataMixin):
             ]
             ax.set_yticks(base_positions)
             ax.set_yticklabels(category_labels, fontsize=self._ts("tick_label"), color=self.color_tick)  # type: ignore[attr-defined]
-            ax.tick_params(axis="y", which="both", length=0, pad=self._px(6))  # type: ignore[attr-defined]
+            ax.tick_params(axis="y", which="both", length=0, pad=self._px(6) + logo_pad_pt)  # type: ignore[attr-defined]
             ax.set_ylim(base_positions.max() + 0.5, base_positions.min() - 0.5)  # first item on top
 
             # ── baseline spine ───────────────────────────────────────────
@@ -381,8 +387,12 @@ class BarMixin(DataMixin):
             # how wide the category labels are.
             self._add_footer(fig)  # type: ignore[attr-defined]
 
-            self._auto_expand_left(ax)  # type: ignore[attr-defined]
+            extra_reserve = logo_pad_pt / 72.0 / fig.get_size_inches()[0]
+            self._auto_expand_left(ax, extra_reserve=extra_reserve)  # type: ignore[attr-defined]
             self._auto_expand_right(ax, ax.get_xticklabels())  # type: ignore[attr-defined]
+
+            if y_tick_logos:
+                self._add_y_tick_logos(ax, base_positions, x, y_tick_logos, icon_size_pt, gap_pt)  # type: ignore[attr-defined]
 
             if save_path is not None:
                 self.save_figure(fig, save_path, dpi=save_dpi, fmt=save_format, **save_kwargs)  # type: ignore[attr-defined]
