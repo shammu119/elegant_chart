@@ -604,8 +604,9 @@ def test_boundary_ticks_drawn_at_xlim():
         if len(ln.get_xdata()) == 2 and ln.get_xdata()[0] == ln.get_xdata()[1]
     }
     assert set(c._x_data_bounds) <= boundary_x, "Expected a boundary tick at both data bounds"
-    # Lower xlim sits exactly at the data minimum (no left padding).
-    assert xlim[0] == pytest.approx(c._x_data_bounds[0])
+    # Lower xlim is at or below the data minimum (auto left padding so the
+    # first label can stay centered).
+    assert xlim[0] <= c._x_data_bounds[0]
     # Upper xlim is at or beyond the data maximum (auto/manual right padding).
     assert xlim[1] >= c._x_data_bounds[1]
     plt.close(fig)
@@ -625,7 +626,7 @@ def test_boundary_ticks_present_for_datetime_axis():
         if len(ln.get_xdata()) == 2 and ln.get_xdata()[0] == ln.get_xdata()[1]
     }
     assert set(c._x_data_bounds) <= boundary_x
-    assert xlim[0] == pytest.approx(c._x_data_bounds[0])
+    assert xlim[0] <= c._x_data_bounds[0]
     assert xlim[1] >= c._x_data_bounds[1]
     plt.close(fig)
 
@@ -633,12 +634,13 @@ def test_boundary_ticks_present_for_datetime_axis():
 # ── x-axis: data bounds, upper padding, edge alignment, minor ticks ────────
 
 
-def test_numeric_xlim_lower_at_data_min_upper_padded():
-    """Lower xlim == data min (no left pad); upper xlim >= data max (auto pad)."""
+def test_numeric_xlim_lower_padded_upper_padded():
+    """Lower xlim <= data min (auto left pad for the centered first label);
+    upper xlim >= data max (auto right pad)."""
     c = make_chart()
     fig, ax = c.line(x=[0, 1, 2, 3], ys=[0, 1, 4, 9], show=False)
     xlim = ax.get_xlim()
-    assert xlim[0] == pytest.approx(0.0)
+    assert xlim[0] <= 0.0
     assert xlim[1] >= 3.0
     # Spine baseline spans the true data range, not the padded xlim.
     assert ax.spines["bottom"].get_bounds()[:2] == pytest.approx((0.0, 3.0))
@@ -654,12 +656,15 @@ def test_explicit_xlim_skips_auto_padding():
 
 
 def test_align_x_edges_default_true():
-    """First major x-tick label is left-aligned, last is right-aligned."""
+    """First and last major x-tick labels both stay centered (edges padded)."""
     c = make_chart()
     fig, ax = c.bar(x=["A", "B", "C", "D"], ys=[1, 2, 3, 4], show=False)
     labels = ax.get_xticklabels()
-    assert labels[0].get_horizontalalignment() == "left"
-    assert labels[-1].get_horizontalalignment() == "right"
+    assert labels[0].get_horizontalalignment() == "center"
+    assert labels[-1].get_horizontalalignment() == "center"
+    # Lower xlim is padded below the first bar's position so the centered
+    # label has room without clipping past the left edge.
+    assert ax.get_xlim()[0] < 0.0
     plt.close(fig)
 
 
@@ -686,8 +691,42 @@ def test_datetime_major_ticks_include_data_endpoints():
     assert majors[-1] == pytest.approx(hi)
 
     labels = ax.get_xticklabels()
-    assert labels[0].get_horizontalalignment() == "left"
-    assert labels[-1].get_horizontalalignment() == "right"
+    assert labels[0].get_horizontalalignment() == "center"
+    assert labels[-1].get_horizontalalignment() == "center"
+    plt.close(fig)
+
+
+def test_align_x_edges_pads_lower_xlim_for_centered_first_label():
+    """A long first label (relative to the others) gets left-padding so it can
+    center on its tick instead of clipping past the left edge."""
+    c = make_chart()
+    fig, ax = c.line(
+        x=["Jan", "F", "M", "A"],
+        ys=[1, 2, 3, 4],
+        show=False,
+    )
+    labels = ax.get_xticklabels()
+    assert labels[0].get_horizontalalignment() == "center"
+    # Categorical positions are 0..3; the wide "Jan" label needs room to the
+    # left of position 0 to stay centered without clipping.
+    assert ax.get_xlim()[0] < 0.0
+    plt.close(fig)
+
+
+def test_align_x_edges_pads_upper_xlim_for_centered_last_label():
+    """Mirror of the left-padding case: a long last label gets right-padding
+    so it can center on its tick instead of clipping past the right edge."""
+    c = make_chart()
+    fig, ax = c.line(
+        x=["J", "F", "M", "December"],
+        ys=[1, 2, 3, 4],
+        show=False,
+    )
+    labels = ax.get_xticklabels()
+    assert labels[-1].get_horizontalalignment() == "center"
+    # Categorical positions are 0..3; the wide "December" label needs room
+    # to the right of position 3 to stay centered without clipping.
+    assert ax.get_xlim()[1] > 3.0
     plt.close(fig)
 
 

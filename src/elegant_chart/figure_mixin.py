@@ -196,12 +196,11 @@ class FigureMixin:
         # Pad the upper x-limit so the rightmost data point / tick label
         # clears the inside y-tick labels living near the right edge.
         self._apply_x_upper_padding(ax, inside_ytick_texts)
-        self._apply_year_comb_left_padding(ax)
-
-        # Edge labels: left-align the first major tick, right-align the
-        # last, now that xlim/padding and layout have both settled.
-        if self._align_x_edges:  # type: ignore[attr-defined]
-            self._align_x_edge_labels(ax)  # type: ignore[attr-defined]
+        # Further pad each edge, if needed, so the first/last major tick
+        # labels can stay centered on their ticks — like every interior
+        # label — instead of bleeding past the plot's left/right edges.
+        self._apply_first_label_left_padding(ax)
+        self._apply_last_label_right_padding(ax)
 
         # Anchor the data range with explicit boundary ticks at the exact
         # x start/end, after layout has settled (geometry-dependent).
@@ -426,16 +425,20 @@ class FigureMixin:
             logger.debug("_auto_x_upper_pad geometry step failed", exc_info=True)
             return 0.0
 
-    def _apply_year_comb_left_padding(self, ax: plt.Axes) -> None:
-        """Shift the lower xlim left so the first (4-digit) year label can
-        center under its tick without being clipped by the left edge.
+    def _apply_first_label_left_padding(self, ax: plt.Axes) -> None:
+        """Shift the lower xlim left so the first major x-tick label can
+        center under its tick (like every interior label) without being
+        clipped by the left edge.
 
-        Only runs when ``_apply_year_tick_comb`` was used for this axis
-        (``self._year_tick_comb_active``). Mirrors ``_auto_x_upper_pad``'s
-        pixel-to-data-span conversion, but measures the rendered width of
-        the first major tick label instead of the inside y-tick labels.
+        Counterpart to ``_apply_last_label_right_padding`` on the right.
+        Skipped when edge labels aren't centered at all
+        (``self._align_x_edges`` is ``False``) or the caller passed an
+        explicit ``xlim`` (authoritative, never auto-adjusted). Only
+        extends the lower bound — never shrinks it — so any padding
+        ``_apply_x_upper_padding`` already added for a bar's half-width is
+        preserved.
         """
-        if not getattr(self, "_year_tick_comb_active", False):
+        if not self._align_x_edges or self._x_xlim_explicit:  # type: ignore[attr-defined]
             return
 
         bounds = self._x_data_bounds  # type: ignore[attr-defined]
@@ -458,9 +461,52 @@ class FigureMixin:
             label_width_px = labels[0].get_window_extent(renderer).width
             p = (label_width_px / 2) / ax_bbox.width
             rel_pad = p / (1 - p)
-            ax.set_xlim(lo - rel_pad * span, ax.get_xlim()[1])
+            needed_lo = lo - rel_pad * span
+            current_lo = ax.get_xlim()[0]
+            ax.set_xlim(min(current_lo, needed_lo), ax.get_xlim()[1])
         except Exception:
-            logger.debug("_apply_year_comb_left_padding geometry step failed", exc_info=True)
+            logger.debug("_apply_first_label_left_padding geometry step failed", exc_info=True)
+
+    def _apply_last_label_right_padding(self, ax: plt.Axes) -> None:
+        """Shift the upper xlim right so the last major x-tick label can
+        center under its tick (like every interior label) without being
+        clipped by the right edge.
+
+        Counterpart to ``_apply_first_label_left_padding`` on the left.
+        Runs after ``_apply_x_upper_padding``, whose own padding (clearing
+        the inside y-tick labels, or a bar's half-width) is preserved via
+        ``max()`` — this only extends the upper bound further when the
+        centered label needs more room than that padding already gives it.
+        Skipped under the same conditions as the left counterpart.
+        """
+        if not self._align_x_edges or self._x_xlim_explicit:  # type: ignore[attr-defined]
+            return
+
+        bounds = self._x_data_bounds  # type: ignore[attr-defined]
+        if bounds is None:
+            return
+        lo, hi = bounds
+        span = hi - lo
+        if span <= 0:
+            return
+
+        fig = ax.get_figure()
+        try:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            ax_bbox = ax.get_window_extent(renderer)
+            labels = ax.get_xticklabels()
+            if ax_bbox.width <= 0 or not labels:
+                return
+
+            label_width_px = labels[-1].get_window_extent(renderer).width
+            p = (label_width_px / 2) / ax_bbox.width
+            rel_pad = p / (1 - p)
+            needed_hi = hi + rel_pad * span
+            current_hi = ax.get_xlim()[1]
+            ax.set_xlim(ax.get_xlim()[0], max(current_hi, needed_hi))
+        except Exception:
+            logger.debug("_apply_last_label_right_padding geometry step failed", exc_info=True)
 
     def _add_footer(self, fig: plt.Figure) -> None:
         if not self.show_footer:
