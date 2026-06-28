@@ -423,9 +423,9 @@ class AxisMixin:
             )
 
         # Keep labels horizontal (Economist style); avoid autofmt_xdate(),
-        # which rotates and right-aligns datetime labels. Per-label
-        # left/center/right alignment of the edge labels is handled by
-        # _align_x_edge_labels() once layout has settled.
+        # which rotates and right-aligns datetime labels. All labels stay
+        # centered; FigureMixin._apply_first/last_label_*_padding() widen
+        # the xlim afterward so the edge labels don't clip.
         ax.tick_params(axis="x", labelrotation=0)
 
     def _apply_year_tick_comb(
@@ -445,8 +445,6 @@ class AxisMixin:
         unlabeled, at half the major tick length (set via color/length below;
         major length/width come from the caller's ``ax.tick_params``).
         """
-        self._year_tick_comb_active = True  # type: ignore[attr-defined]
-
         lo, hi = data_bounds
         start_year = mdates.num2date(lo).year
         end_year = mdates.num2date(hi).year
@@ -489,33 +487,6 @@ class AxisMixin:
                 length=self._px(2.5), width=self._px(0.4),  # type: ignore[attr-defined]
                 colors=self.color_subtitle,  # type: ignore[attr-defined]
             )
-
-    def _align_x_edge_labels(self, ax: plt.Axes) -> None:
-        """Left-align the first major x-tick label, right-align the last.
-
-        The default ``ha="center"`` works for interior ticks but lets the
-        first label bleed past the left edge of the plot (and the last
-        bleed past the right). Anchoring the leftmost visible major tick's
-        label to its left edge — and the rightmost to its right edge — keeps
-        every label within the plot area, which matters most once
-        ``_apply_datetime_x_axis``/``_apply_numeric_x_axis`` pin major ticks
-        at the exact data bounds.
-        """
-        xlim = ax.get_xlim()
-        lo, hi = min(xlim), max(xlim)
-        ticks = list(ax.xaxis.get_majorticklocs())
-        visible = [t for t in ticks if lo - 1e-9 <= t <= hi + 1e-9]
-        if len(visible) < 2:
-            return
-
-        tick_min, tick_max = min(visible), max(visible)
-        for lbl, tick in zip(ax.get_xticklabels(), ticks):
-            if tick == tick_min:
-                lbl.set_horizontalalignment("left")
-            elif tick == tick_max:
-                lbl.set_horizontalalignment("right")
-            else:
-                lbl.set_horizontalalignment("center")
 
     def _draw_x_boundary_ticks(self, ax: plt.Axes) -> None:
         """Draw short downward tick marks at the exact x-axis start and end.

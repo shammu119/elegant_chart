@@ -36,8 +36,10 @@ Axis / tick
     x_upper_pad                  — float | None  (relative-to-data-span pad added
                                     to the upper xlim; None == auto-measured from
                                     the rendered inside y-tick label widths)
-    align_x_edges                — bool  (left-align the first x tick label and
-                                    right-align the last, instead of centering)
+    align_x_edges                — bool  (pad the lower/upper xlim so the first and
+                                    last x tick labels can stay centered on their
+                                    ticks, like every interior label, without
+                                    clipping past the plot's edges)
     show_y_axis                   — bool  (default True; when False, suppresses
                                     the y gridlines and y-tick labels entirely —
                                     useful when value labels on the data itself

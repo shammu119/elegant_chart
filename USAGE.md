@@ -437,14 +437,14 @@ chart.bar(x=[0, 1, 2, 3, 4], ys=[...], x_tick_step=1, x_minor_ticks=3)
 
 ### X-axis — edge label alignment & padding
 
-By default (`align_x_edges=True`), the **first** major x-tick label is left-aligned
-and the **last** is right-aligned — interior labels stay centered. Combined with
-the lower x-limit always sitting at the data minimum, the first label starts
-exactly at the left edge instead of bleeding past it.
+By default (`align_x_edges=True`), the **first** and **last** major x-tick labels
+both stay centered on their ticks, exactly like every interior label. The lower
+and upper x-limits each get extra padding — auto-measured from that label's own
+rendered width — so centering them doesn't bleed past the plot's edges.
 
-The upper x-limit gets extra padding beyond the data maximum, auto-measured from
-the rendered inside y-tick label widths, so the last data point and its label
-clear those labels on the right edge.
+The upper x-limit also gets padding auto-measured from the rendered inside
+y-tick label widths, so the last data point clears those labels on the right
+edge; whichever of the two right-side pads is larger wins.
 
 ```python
 # Revert to centered tick labels
