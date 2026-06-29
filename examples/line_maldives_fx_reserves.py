@@ -56,19 +56,6 @@ chart = ElegantChart(
             "arrow": True,
         },
         {
-            # Dropped into the open floor below the historic low, instead of
-            # crowding the marker directly (kept short of y=0 so it doesn't
-            # run into the x-tick labels below the axis).
-            "x": positions[0],
-            "y": values[0],
-            "text": "Historic low —\n0.8 months / $371M",
-            "dx": 4,
-            "dy": -10,
-            "ha": "left",
-            "va": "top",
-            "arrow": True,
-        },
-        {
             # Pulled down into the open wedge under the peak and right of
             # the policy diamond, clear of both the threshold ceiling above
             # and the diamond's own footprint.
