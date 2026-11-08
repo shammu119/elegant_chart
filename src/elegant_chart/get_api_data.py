@@ -158,3 +158,26 @@ def get_series_df(
     df = pd.DataFrame(series.get("data", []))
     _save_cached_series_df(cached_path, df)
     return df
+
+
+def get_series_info(series_id: int, timeout: int = 30) -> dict:
+    """
+    Fetch a series' descriptive metadata (name, frequency, unit).
+
+    Never raises: any failure (no token, no network, unknown id) returns ``{}``
+    so callers can simply leave the description out.
+    """
+    try:
+        import requests  # noqa: PLC0415 — optional dependency, imported lazily
+
+        token = _load_token()
+        response = requests.get(
+            f"https://database.mma.gov.mv/api/series?ids={int(series_id)}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        series = (response.json().get("data") or [{}])[0]
+    except Exception:  # noqa: BLE001 — metadata is a nicety, never a blocker
+        return {}
+    return {k: series[k] for k in ("name", "frequency", "unit") if series.get(k)}

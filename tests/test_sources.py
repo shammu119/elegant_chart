@@ -44,3 +44,45 @@ def test_csv_iso_dates_become_datetimes():
 def test_mixed_text_column_not_converted():
     df = sources.read_uploaded(b"When\n2024-01-01\nsoon\n", "data.csv")
     assert df["When"].tolist() == ["2024-01-01", "soon"]
+
+
+def test_series_info_reads_name_frequency_unit(monkeypatch):
+    import elegant_chart.get_api_data as api
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "data": [
+                    {
+                        "id": 101,
+                        "name": "Quarterly GDP",
+                        "frequency": "Quarterly",
+                        "unit": "Rufiyaa",
+                        "path": ["ignored"],
+                        "data": [],
+                    }
+                ]
+            }
+
+    monkeypatch.setenv("MMA_API_TOKEN", "t")
+    monkeypatch.setattr("requests.get", lambda *a, **k: Resp())
+    info = api.get_series_info(101)
+    assert info == {"name": "Quarterly GDP", "frequency": "Quarterly", "unit": "Rufiyaa"}
+
+
+def test_series_info_failure_returns_empty(monkeypatch):
+    import elegant_chart.get_api_data as api
+
+    monkeypatch.delenv("MMA_API_TOKEN", raising=False)
+    monkeypatch.chdir("/")  # no TOKEN.txt here
+    assert api.get_series_info(101) == {}
+
+
+def test_load_mma_info_delegates(monkeypatch):
+    import elegant_chart.get_api_data as api
+
+    monkeypatch.setattr(api, "get_series_info", lambda sid: {"name": f"s{sid}"})
+    assert sources.load_mma_info("7") == {"name": "s7"}

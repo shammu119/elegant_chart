@@ -63,3 +63,10 @@ def load_mma_series(series_id: int) -> pd.DataFrame:
     from .get_api_data import get_series_df  # noqa: PLC0415 — optional deps (requests)
 
     return get_series_df(int(series_id))
+
+
+def load_mma_info(series_id: int | str) -> dict:
+    """Name, frequency and unit of one MMA series (``{}`` if unavailable)."""
+    from .get_api_data import get_series_info  # noqa: PLC0415 — optional deps (requests)
+
+    return get_series_info(int(series_id))
