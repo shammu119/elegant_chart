@@ -72,6 +72,11 @@ class ChartTypeSpec:
     # bump
     highlight: list[str] = field(default_factory=list)  # empty == every series is a hero
     ascending: bool = False
+    hero_linewidth: Optional[float] = None  # None == library default (2.5pt, scaled)
+    other_linewidth: Optional[float] = None  # None == library default (1pt, scaled)
+    other_color: str = "#BBBBBB"  # non-highlighted ("ghost") lines
+    other_alpha: float = 0.6
+    label_display: dict[str, str] = field(default_factory=dict)  # series -> shown label text
     # hbar (y_tick_logos) and bump (label_logos): {label: image path}
     logos: dict[str, str] = field(default_factory=dict)
 

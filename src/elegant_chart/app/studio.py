@@ -458,8 +458,55 @@ def chart_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
             key="chart.highlight",
         )
         ch.ascending = st.checkbox("Smallest value = rank 1", ch.ascending, key="chart.ascending")
+        bump_style_controls(ch, series)
     if ch.type in ("hbar", "bump"):
         logos_editor(spec, df)
+
+
+def bump_style_controls(ch: Any, series: list) -> None:
+    """Ghost-line colour/opacity, line widths and label text for bump charts."""
+    st.markdown("**Lines**")
+    c1, c2 = st.columns(2)
+    with c1:
+        ch.hero_linewidth = _opt_number(
+            "Highlighted line width (pt)",
+            ch.hero_linewidth,
+            "chart.hero_lw",
+            step=0.1,
+            min_value=0.0,
+        )
+    with c2:
+        ch.other_linewidth = _opt_number(
+            "Other line width (pt)",
+            ch.other_linewidth,
+            "chart.other_lw",
+            step=0.1,
+            min_value=0.0,
+        )
+    c1, c2 = st.columns([1, 2], vertical_alignment="bottom")
+    ch.other_color = c1.color_picker("Other lines colour", ch.other_color, key="chart.other_color")
+    ch.other_alpha = c2.slider(
+        "Other lines opacity", 0.0, 1.0, float(ch.other_alpha), 0.05, key="chart.other_alpha"
+    )
+    if not series:
+        return
+    st.markdown("**Label text**")
+    st.caption("Leave blank to use the series name. Type `\\n` for a line break.")
+    rows = [
+        {"series": s, "label": ch.label_display.get(s, "").replace("\n", "\\n")} for s in series
+    ]
+    edited = st.data_editor(
+        pd.DataFrame(rows, columns=["series", "label"]).astype({"label": "string"}),
+        hide_index=True,
+        width="stretch",
+        disabled=["series"],
+        key="chart.label_display",
+    )
+    ch.label_display = {
+        r["series"]: str(r["label"]).replace("\\n", "\n")
+        for r in edited.to_dict("records")
+        if r.get("label") is not None and not pd.isna(r["label"]) and str(r["label"]).strip()
+    }
 
 
 def logos_editor(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:

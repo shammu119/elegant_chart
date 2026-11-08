@@ -157,3 +157,21 @@ def test_annotations_resolve_text_x():
         [{"x": "2021-01-01", "y": 1, "text": "d"}], [datetime(2020, 1, 1), datetime(2022, 1, 1)]
     )
     assert dated[0]["x"] > 18000  # matplotlib date number
+
+
+def test_bump_ghost_and_label_options_are_passed_through(wide):
+    from elegant_chart.render import build_call_kwargs
+
+    spec = _spec("bump")
+    spec.chart.highlight = ["EK"]
+    spec.chart.other_color = "#FF00FF"
+    spec.chart.other_alpha = 0.3
+    spec.chart.hero_linewidth = 3.0
+    spec.chart.other_linewidth = 0.5
+    spec.chart.label_display = {"EK": "Emirates\nAirline", "QR": ""}
+    method, kw = build_call_kwargs(spec, wide)
+    assert method == "bump"
+    assert kw["other_color"] == "#FF00FF" and kw["other_alpha"] == 0.3
+    assert kw["hero_linewidth"] == 3.0 and kw["other_linewidth"] == 0.5
+    assert kw["label_display"] == {"EK": "Emirates\nAirline"}
+    render(spec, wide).close()

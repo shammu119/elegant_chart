@@ -75,3 +75,21 @@ def test_failing_step_is_shown_inline():
     at.run()
     assert not at.exception
     assert any("Gone" in e.value for e in at.error)
+
+
+def test_bump_controls_update_spec():
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    at.session_state.raw_df = pd.DataFrame(
+        {"Year": ["2021", "2022", "2023"], "EK": [3.0, 2.0, 1.0], "QR": [1.0, 3.0, 2.0]}
+    )
+    at.session_state.raw_key = "bump"
+    at.run()
+    at.radio(key="chart.type").set_value("bump")
+    at.run()
+    at.slider(key="chart.other_alpha").set_value(0.25)
+    at.run()
+    assert not at.exception
+    assert not at.error, [e.value for e in at.error]
+    assert at.session_state.spec.chart.other_alpha == 0.25
+    assert len(at.get("image")) == 1
