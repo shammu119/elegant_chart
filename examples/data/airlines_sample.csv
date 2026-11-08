@@ -1,0 +1,43 @@
+Year,Airline,Type,Total Passengers
+2021,Emirates,International,176815
+2021,Qatar Airways,International,97149
+2021,IndiGo,International,59351
+2021,Aeroflot,International,49614
+2021,SriLankan Airlines,International,21600
+2021,flydubai,International,22568
+2021,Etihad Airways,International,17570
+2021,Singapore Airlines,International,19954
+2021,Turkish Airlines,International,17480
+2021,GoFirst,International,13413
+2021,British Airways,International,10806
+2021,Gulf Air,International,8601
+2021,Maldivian,Domestic,64190
+2021,Manta Air,Domestic,29670
+2022,Emirates,International,230209
+2022,Qatar Airways,International,121283
+2022,IndiGo,International,82432
+2022,Aeroflot,International,74097
+2022,SriLankan Airlines,International,30733
+2022,flydubai,International,30738
+2022,Etihad Airways,International,24519
+2022,Singapore Airlines,International,23301
+2022,Turkish Airlines,International,22495
+2022,GoFirst,International,16358
+2022,British Airways,International,13607
+2022,Gulf Air,International,12035
+2022,Maldivian,Domestic,89391
+2022,Manta Air,Domestic,43337
+2023,Emirates,International,271336
+2023,Qatar Airways,International,138389
+2023,IndiGo,International,86196
+2023,Aeroflot,International,76434
+2023,SriLankan Airlines,International,31131
+2023,flydubai,International,30219
+2023,Etihad Airways,International,31048
+2023,Singapore Airlines,International,27028
+2023,Turkish Airlines,International,24639
+2023,GoFirst,International,18645
+2023,British Airways,International,18388
+2023,Gulf Air,International,12846
+2023,Maldivian,Domestic,98689
+2023,Manta Air,Domestic,49499

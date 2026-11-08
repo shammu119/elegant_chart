@@ -3,6 +3,9 @@
 A lightweight and flexible charting toolkit built in Python. The project uses a modular mixin
 architecture that allows you to create customisable charts with clean and extensible code.
 
+> **New here?** Start with the step-by-step [guides](docs/guides/README.md). You'll
+> make your first chart in Chart Studio, the point-and-click app, in about 10 minutes.
+
 ## Features
 
 - Modular system using mixins (axis, bar, line, style, figure, data)
@@ -124,7 +127,7 @@ df.to_excel("data.xlsx", index=False)
 ## Chart Studio (GUI, optional)
 
 A local, single-user app for going from raw data to a finished chart without
-writing code. It has three panels: **data + reshaping** on the left, a
+writing code. See the [getting started guide](docs/guides/01-getting-started.md). It has three panels: **data + reshaping** on the left, a
 **live preview** in the centre, and **style tabs** on the right.
 
 ```bash

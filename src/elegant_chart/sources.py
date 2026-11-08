@@ -32,8 +32,30 @@ def read_uploaded(data: bytes, name: str, sheet: Optional[str] = None) -> pd.Dat
     if is_excel(name):
         return pd.read_excel(io.BytesIO(data), sheet_name=sheet if sheet is not None else 0)
     if os.path.splitext(name or "")[1].lower() in (".csv", ".txt", ""):
-        return pd.read_csv(io.BytesIO(data))
+        return parse_date_columns(pd.read_csv(io.BytesIO(data)))
     raise ValueError(f"Unsupported file type: {name}. Use .csv or .xlsx.")
+
+
+def parse_date_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Turn text columns that hold ISO dates (``2024-01-31``) into datetimes.
+
+    CSV has no date type, so dates arrive as text and would be plotted as
+    category labels.  Only columns where *every* non-empty value is an ISO
+    date (``YYYY-MM-DD``, optionally with a time) are converted.
+    """
+    out = df.copy()
+    for col in out.columns:
+        s = out[col]
+        if not (pd.api.types.is_object_dtype(s) or pd.api.types.is_string_dtype(s)):
+            continue
+        text = s.dropna().astype(str).str.strip()
+        if text.empty or not text.str.match(r"^\d{4}-\d{2}-\d{2}([ T].*)?$").all():
+            continue
+        try:
+            out[col] = pd.to_datetime(s, format="ISO8601")
+        except (ValueError, TypeError):
+            continue
+    return out
 
 
 def load_mma_series(series_id: int) -> pd.DataFrame:
