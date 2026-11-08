@@ -202,6 +202,9 @@ class FigureMixin:
         self._apply_first_label_left_padding(ax)
         self._apply_last_label_right_padding(ax)
 
+        # Final guarantee: no bar or value label may sit under a y-tick label.
+        self._clear_data_from_ytick_labels(ax, inside_ytick_texts)
+
         # Anchor the data range with explicit boundary ticks at the exact
         # x start/end, after layout has settled (geometry-dependent).
         self._draw_x_boundary_ticks(ax)  # type: ignore[attr-defined]
@@ -390,7 +393,10 @@ class FigureMixin:
         half_w = getattr(self, "_bar_half_width", None) or 0.0
 
         new_lo = lo - half_w
-        new_hi = hi + max(upper_pad, half_w)
+        # The y-tick-clearance pad is measured from the rightmost *bar edge*
+        # (hi + half_w), not from the bar's centre, or the last bar would
+        # extend under the inside tick labels.
+        new_hi = hi + half_w + upper_pad
         if new_lo != lo or new_hi != hi:
             ax.set_xlim(new_lo, new_hi)
 
@@ -426,6 +432,63 @@ class FigureMixin:
         except Exception:
             logger.debug("_auto_x_upper_pad geometry step failed", exc_info=True)
             return 0.0
+
+    def _clear_data_from_ytick_labels(self, ax: plt.Axes, ytick_texts: list) -> None:
+        """Widen the x-limits until no bar or value label overlaps an inside y-tick label.
+
+        Measures the rendered bounding boxes of the bars and of the value-label
+        texts against the tick labels; wherever they intersect, the limit on the
+        tick labels' side is pushed outward (shrinking the data horizontally)
+        so the data's outer edge stops a small gap short of the tick label.
+        Skipped for explicit ``xlim`` and when there are no inside tick labels.
+        """
+        if not ytick_texts or self._x_xlim_explicit:  # type: ignore[attr-defined]
+            return
+        from matplotlib.patches import Rectangle
+
+        right = self.y_axis_side == "right"
+        fig = ax.get_figure()
+        try:
+            for _ in range(4):
+                fig.canvas.draw()
+                renderer = fig.canvas.get_renderer()
+                ax_bb = ax.get_window_extent(renderer)
+                if ax_bb.width <= 0:
+                    return
+                gap = self._px(3.0)  # type: ignore[attr-defined]
+                ticks = [t.get_window_extent(renderer) for t in ytick_texts]
+                tick_ids = {id(t) for t in ytick_texts}
+                data = [
+                    p.get_window_extent(renderer)
+                    for p in ax.patches
+                    if isinstance(p, Rectangle) and p.get_visible()
+                ] + [
+                    t.get_window_extent(renderer)
+                    for t in ax.texts
+                    if id(t) not in tick_ids and t.get_text() and t.get_visible()
+                ]
+                # Worst-case factor by which the x-span must grow so every
+                # offending element retreats `need` px from the tick labels.
+                factor = 1.0
+                for d in data:
+                    for tb in ticks:
+                        if d.y1 <= tb.y0 or d.y0 >= tb.y1:
+                            continue
+                        if right:
+                            need, reach = d.x1 - tb.x0 + gap, d.x1 - ax_bb.x0
+                        else:
+                            need, reach = tb.x1 - d.x0 + gap, ax_bb.x1 - d.x0
+                        if need > 0.5 and reach > need:
+                            factor = max(factor, reach / (reach - need))
+                if factor <= 1.0005:
+                    return
+                lo, hi = ax.get_xlim()
+                if right:
+                    ax.set_xlim(lo, lo + (hi - lo) * factor)
+                else:
+                    ax.set_xlim(hi - (hi - lo) * factor, hi)
+        except Exception:
+            logger.debug("_clear_data_from_ytick_labels geometry step failed", exc_info=True)
 
     def _apply_first_label_left_padding(self, ax: plt.Axes) -> None:
         """Shift the lower xlim left so the first major x-tick label can

@@ -854,3 +854,47 @@ def test_bar_series_colors_follow_role_table():
     assert to_hex(ax.patches[2].get_facecolor()) == expected_b
     assert to_hex(ax.patches[3].get_facecolor()) == expected_b
     plt.close(fig)
+
+
+# ── footer defaults & bar / y-tick-label overlap ─────────────────────────────
+
+
+def test_default_caption_and_logo():
+    from elegant_chart.base import DEFAULT_CAPTION
+
+    c = make_chart()
+    assert c.caption == DEFAULT_CAPTION == "Source: x\nData Visualized by Hassan Shammu"
+    assert c.logo_path is None  # bundled logo
+    assert make_chart(caption="Source: y").caption == "Source: y"
+    assert make_chart(caption="").caption == ""  # explicit opt-out
+
+
+@pytest.mark.parametrize("value_labels", [False, True])
+def test_bars_and_value_labels_clear_ytick_labels(value_labels):
+    c = make_chart()
+    fig, ax = c.bar(
+        x=[2019, 2020, 2021, 2022, 2023, 2024],
+        ys={
+            "India": [150e3, 62e3, 298e3, 235e3, 208e3, 174e3],
+            "Russia": [55e3, 45e3, 208e3, 180e3, 211e3, 221e3],
+        },
+        show_value_labels=value_labels,
+        show=False,
+        export_xlsx=False,
+    )
+    fig.canvas.draw()
+    r = fig.canvas.get_renderer()
+    ticks = [
+        t.get_window_extent(r)
+        for t in ax.texts
+        if t.get_text() in {"0", "100K", "200K", "300K"}
+        and abs(t.get_position()[0] - 0.99) < 1e-6
+    ]
+    assert ticks
+    others = [p.get_window_extent(r) for p in ax.patches] + [
+        t.get_window_extent(r) for t in ax.texts if t.get_zorder() == 6
+    ]
+    for tb in ticks:
+        for d in others:
+            assert not tb.overlaps(d), (tb, d)
+    plt.close(fig)

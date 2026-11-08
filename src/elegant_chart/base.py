@@ -9,7 +9,8 @@ the contract explicit and type-checkable rather than implicit convention.
 Attribute contract (mixins may read, only __init__ writes)
 ----------------------------------------------------------
 Presentation
-    title, subtitle, xlabel, ylabel, caption  — str | None
+    title, subtitle, xlabel, ylabel, caption  — str | None  (caption=None falls
+                  back to DEFAULT_CAPTION; "" disables the caption)
     annotations — list[dict] (sparse muted-grey in-plot callouts; see FigureMixin._draw_annotations)
     figsize    — (float, float)
     theme      — str
@@ -89,6 +90,9 @@ from .types import FormatterSpec
 # authored at this canvas size and scale proportionally when figsize differs.
 REFERENCE_FIGSIZE: Tuple[float, float] = (3.6, 4.5)
 
+# Footer caption used whenever ``caption`` is not given (pass ``caption=""`` to omit it).
+DEFAULT_CAPTION = "Source: x\nData Visualized by Hassan Shammu"
+
 
 class ChartBase:
     """Defines and initialises every attribute consumed by the mixins."""
@@ -133,7 +137,7 @@ class ChartBase:
         self.subtitle = subtitle
         self.xlabel = xlabel
         self.ylabel = ylabel
-        self.caption = caption
+        self.caption = DEFAULT_CAPTION if caption is None else caption
         self.annotations = annotations or []
         self.figsize = figsize
         # Proportional scale relative to the reference design size.
