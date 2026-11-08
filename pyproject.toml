@@ -23,7 +23,7 @@ Repository = "https://github.com/shammu119/elegant_chart"
 [project.optional-dependencies]
 data = ["requests>=2.25", "openpyxl>=3.0"]
 app  = ["streamlit>=1.50", "requests>=2.25", "openpyxl>=3.0"]
-dev  = ["pytest>=7", "ruff>=0.4", "openpyxl>=3.0"]
+dev  = ["pytest>=7", "pytest-cov>=4", "ruff>=0.4", "openpyxl>=3.0"]
 
 [project.scripts]
 elegant-chart-studio = "elegant_chart.app:main"
