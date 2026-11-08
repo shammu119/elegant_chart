@@ -20,3 +20,6 @@ suggestions.txt
 # Editor directories
 .idea/
 .vscode/
+
+# Brainstorming mockups (local only)
+.superpowers/
