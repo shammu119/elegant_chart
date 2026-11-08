@@ -27,7 +27,10 @@ def test_airline_example_matches_hand_written_pandas(flights):
     res = apply_steps(flights, steps)
     expected = (
         flights[flights["Type"] == "International"]
-        .groupby("Airline")["Pax"].sum().sort_values(ascending=False).head(1)
+        .groupby("Airline")["Pax"]
+        .sum()
+        .sort_values(ascending=False)
+        .head(1)
     )
     assert res.ok
     assert res.df["Airline"].tolist() == expected.index.tolist()
@@ -37,8 +40,15 @@ def test_airline_example_matches_hand_written_pandas(flights):
 
 @pytest.mark.parametrize(
     "op,value,expected",
-    [("=", "2022", 2), ("≠", "2022", 5), (">", "2021", 5), ("≥", "2022", 5),
-     ("<", "2022", 2), ("≤", "2022", 4), ("in", "2021, 2023", 5)],
+    [
+        ("=", "2022", 2),
+        ("≠", "2022", 5),
+        (">", "2021", 5),
+        ("≥", "2022", 5),
+        ("<", "2022", 2),
+        ("≤", "2022", 4),
+        ("in", "2021, 2023", 5),
+    ],
 )
 def test_filter_operators_coerce_numeric(flights, op, value, expected):
     step = {"op": "filter", "params": {"column": "Year", "operator": op, "value": value}}

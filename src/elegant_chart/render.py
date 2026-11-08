@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from .elegant_chart import ElegantChart
@@ -46,15 +47,22 @@ class RenderResult:
 # ── column resolution ────────────────────────────────────────────────────────
 
 
+def default_x_col(df: pd.DataFrame) -> Any:
+    """First non-numeric column (labels, dates), else the first column."""
+    for c in df.columns:
+        if not pd.api.types.is_numeric_dtype(df[c]):
+            return c
+    return df.columns[0]
+
+
 def resolve_columns(spec: ChartSpec, df: pd.DataFrame) -> tuple[str, list[str]]:
     """Return ``(x_col, y_cols)``, filling sensible defaults when unset.
 
-    Default x = first column; default y = every numeric column except x.
+    Default x = :func:`default_x_col`; default y = every numeric column except x.
     """
     if df is None or df.empty:
         raise SpecError("There is no data to plot.")
-    cols = list(df.columns)
-    x_col = spec.chart.x_col if spec.chart.x_col is not None else cols[0]
+    x_col = spec.chart.x_col if spec.chart.x_col is not None else default_x_col(df)
     if x_col not in df.columns:
         raise SpecError(f"X column '{x_col}' is not in the data.")
     y_cols = [c for c in spec.chart.y_cols]
@@ -92,8 +100,56 @@ def logo_path_value(spec: ChartSpec) -> Optional[str]:
     return None  # bundled logo
 
 
-def build_chart_kwargs(spec: ChartSpec) -> dict[str, Any]:
-    """Keyword arguments for ``ElegantChart(...)``."""
+def resolve_annotations(
+    annotations: list[dict[str, Any]], x_values: Optional[list[Any]] = None
+) -> list[dict[str, Any]]:
+    """Convert GUI-style annotations (``x`` typed as text) to data coordinates.
+
+    ``x`` given as a string is matched against the plotted x values: a date
+    on a datetime axis, a number on a numeric axis, or a category name on a
+    categorical axis (→ its position).  Rows without text are dropped.
+    """
+    import matplotlib.dates as mdates  # noqa: PLC0415
+
+    out: list[dict[str, Any]] = []
+    sample = x_values[0] if x_values else None
+    for raw in annotations:
+        ann = {k: v for k, v in dict(raw).items() if v is not None and not _is_nan(v)}
+        if not str(ann.get("text") or "").strip() or "x" not in ann or "y" not in ann:
+            continue
+        x = ann["x"]
+        if isinstance(x, str) and x_values:
+            text = x.strip()
+            if isinstance(sample, (pd.Timestamp, np.datetime64)) or hasattr(sample, "year"):
+                x = float(mdates.date2num(pd.Timestamp(text)))
+            elif isinstance(sample, str):
+                labels = [str(v) for v in x_values]
+                x = float(labels.index(text)) if text in labels else float(text)
+            else:
+                x = float(text)
+        elif isinstance(x, str):
+            x = float(x)
+        ann["x"] = x
+        ann["y"] = float(ann["y"])
+        for key in ("dx", "dy"):
+            if key in ann:
+                ann[key] = float(ann[key])
+        if "arrow" in ann:
+            ann["arrow"] = bool(ann["arrow"])
+        out.append(ann)
+    return out
+
+
+def _is_nan(v: Any) -> bool:
+    return isinstance(v, float) and np.isnan(v)
+
+
+def build_chart_kwargs(spec: ChartSpec, x_values: Optional[list[Any]] = None) -> dict[str, Any]:
+    """Keyword arguments for ``ElegantChart(...)``.
+
+    ``x_values`` (the plotted x column) lets text-typed annotation ``x`` values
+    be resolved to data coordinates; see :func:`resolve_annotations`.
+    """
     t, lay, a, c = spec.style.text, spec.style.layout, spec.style.axes, spec.style.colors
     return dict(
         title=t.title or None,
@@ -101,7 +157,7 @@ def build_chart_kwargs(spec: ChartSpec) -> dict[str, Any]:
         caption=t.caption or None,
         xlabel=t.xlabel or None,
         ylabel=t.ylabel or None,
-        annotations=[dict(x) for x in t.annotations] or None,
+        annotations=resolve_annotations(t.annotations, x_values) or None,
         theme=c.theme,
         color_map=dict(c.color_map) or None,
         x_tick_step=a.x_tick_step,
@@ -136,9 +192,7 @@ def build_call_kwargs(spec: ChartSpec, df: pd.DataFrame) -> tuple[str, dict[str,
     output = dict(show=False, save_path=None, export_xlsx=False)
 
     if ctype == "bump":
-        ys = {
-            str(c): [None if pd.isna(v) else float(v) for v in df[c].tolist()] for c in y_cols
-        }
+        ys = {str(c): [None if pd.isna(v) else float(v) for v in df[c].tolist()] for c in y_cols}
         return "bump", dict(
             x=df[x_col].tolist(),
             ys=ys,
@@ -196,7 +250,12 @@ def build_call_kwargs(spec: ChartSpec, df: pd.DataFrame) -> tuple[str, dict[str,
 def render(spec: ChartSpec, df: pd.DataFrame) -> RenderResult:
     """Draw ``spec`` with ``df`` and return the live figure (caller closes it)."""
     method, call_kwargs = build_call_kwargs(spec, df)
-    chart = ElegantChart(**build_chart_kwargs(spec))
+    x_col, _ = resolve_columns(spec, df)
+    try:
+        chart_kwargs = build_chart_kwargs(spec, df[x_col].tolist())
+    except (TypeError, ValueError) as exc:
+        raise SpecError(f"Annotation position not understood: {exc}") from exc
+    chart = ElegantChart(**chart_kwargs)
     before = set(plt.get_fignums())
     try:
         fig, ax = getattr(chart, method)(**call_kwargs)
@@ -224,4 +283,3 @@ def chart_data_xlsx_bytes(chart: ElegantChart) -> bytes:
             return fh.read()
     finally:
         os.remove(path)
-

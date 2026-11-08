@@ -21,10 +21,12 @@ from elegant_chart.render import (  # noqa: E402
 @pytest.fixture
 def wide():
     return pd.DataFrame(
-        {"Year": [2019, 2020, 2021, 2022, 2023],
-         "EK": [10.0, 4.0, 7.0, 12.0, 15.0],
-         "QR": [8.0, 3.0, 9.0, 10.0, 11.0],
-         "UL": [5.0, 2.0, 4.0, 6.0, 7.0]}
+        {
+            "Year": [2019, 2020, 2021, 2022, 2023],
+            "EK": [10.0, 4.0, 7.0, 12.0, 15.0],
+            "QR": [8.0, 3.0, 9.0, 10.0, 11.0],
+            "UL": [5.0, 2.0, 4.0, 6.0, 7.0],
+        }
     )
 
 
@@ -67,11 +69,15 @@ def test_render_matches_direct_library_call(wide):
     res.close()
 
     chart = ElegantChart(
-        title="Two-line\ntitle", subtitle="Passengers", caption="Source: test",
-        theme="consulting_light", y_tick_step=5,
+        title="Two-line\ntitle",
+        subtitle="Passengers",
+        caption="Source: test",
+        theme="consulting_light",
+        y_tick_step=5,
     )
-    fig, _ = chart.line(df=wide, x_col="Year", y_cols=["EK", "QR"], markers=True,
-                        show=False, export_xlsx=False)
+    fig, _ = chart.line(
+        df=wide, x_col="Year", y_cols=["EK", "QR"], markers=True, show=False, export_xlsx=False
+    )
     direct = figure_png_bytes(fig, 100)
     plt.close(fig)
     assert via_spec == direct
@@ -131,3 +137,23 @@ def test_logo_modes():
     spec.style.layout.logo_mode = "custom"
     spec.style.layout.logo_path = "/tmp/x.png"
     assert build_chart_kwargs(spec)["logo_path"] == "/tmp/x.png"
+
+
+def test_annotations_resolve_text_x():
+    from datetime import datetime
+
+    from elegant_chart.render import resolve_annotations
+
+    anns = [
+        {"x": "2021", "y": "5", "text": "a"},
+        {"x": "B", "y": 1, "text": "b", "arrow": 1},
+        {"x": "1", "y": 1, "text": ""},
+    ]
+    assert resolve_annotations(anns[:1], [2020, 2021])[0]["x"] == 2021.0
+    assert resolve_annotations(anns[1:], ["A", "B"]) == [
+        {"x": 1.0, "y": 1.0, "text": "b", "arrow": True}
+    ]
+    dated = resolve_annotations(
+        [{"x": "2021-01-01", "y": 1, "text": "d"}], [datetime(2020, 1, 1), datetime(2022, 1, 1)]
+    )
+    assert dated[0]["x"] > 18000  # matplotlib date number
