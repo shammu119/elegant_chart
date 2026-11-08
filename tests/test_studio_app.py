@@ -208,3 +208,44 @@ def test_mma_series_name_is_shown_after_fetch():
     assert not at.exception, at.exception
     assert any("Quarterly GDP" in m.value for m in at.markdown)
     assert any("MMA series 101 · Quarterly · Rufiyaa" in c.value for c in at.caption)
+
+
+def test_theme_card_click_changes_theme():
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    at.button(key="sample").click()
+    at.run()
+    at.session_state["inspector.section"] = "Colors"
+    at.run()
+    assert not at.exception, at.exception
+    at.button(key="colors.theme.consulting_dark").click()
+    at.run()
+    assert not at.exception, at.exception
+    assert at.session_state.spec.style.colors.theme == "consulting_dark"
+    assert any("ec-theme sel" in m.value for m in at.markdown)
+
+
+def test_series_color_role_choice_is_kept_and_swatches_follow():
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    at.button(key="sample").click()
+    at.run()
+    at.session_state["inspector.section"] = "Colors"
+    at.run()
+    at.selectbox(key="colors.role.India").set_value("tertiary")
+    at.run()
+    assert not at.exception, at.exception
+    assert at.session_state.spec.style.colors.color_map == {"India": "tertiary"}
+
+
+def test_every_chart_type_renders_all_sections_without_error():
+    for ctype in ("bar", "hbar", "line", "bump"):
+        at = AppTest.from_file(STUDIO, default_timeout=60)
+        at.run()
+        at.button(key="sample").click()
+        at.run()
+        at.session_state["chart.type"] = ctype
+        for section in ("Chart", "Text", "Axes", "Colors", "More"):
+            at.session_state["inspector.section"] = section
+            at.run()
+            assert not at.exception, (ctype, section, at.exception)

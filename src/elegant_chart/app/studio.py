@@ -65,9 +65,9 @@ SIDEBAR_WIDTH = 340  # px, roughly a quarter of a laptop screen
 SAMPLE_CSV = Path(__file__).with_name("sample_arrivals.csv")
 STEP_LABELS = {
     "filter": "Filter rows",
-    "group": "Group + aggregate",
+    "group": "Group and total up",
     "sort": "Sort",
-    "top_n": "Top N",
+    "top_n": "Keep the top rows",
     "pivot": "Pivot (long → wide)",
 }
 IMAGE_TYPES = ["png", "jpg", "jpeg", "webp"]
@@ -495,7 +495,9 @@ def _step_controls(i: int, step: StepSpec, sid: str, cols: list) -> None:
         with c1:
             p["column"] = _select("Column", cols, p.get("column"), f"{k}.column", keep_missing=True)
         with c2:
-            p["operator"] = _select("Op", FILTER_OPERATORS, p.get("operator", "="), f"{k}.op")
+            p["operator"] = _select(
+                "Condition", FILTER_OPERATORS, p.get("operator", "="), f"{k}.op"
+            )
         hint = " (comma-separated)" if p["operator"] == "in" else ""
         p["value"] = st.text_input(
             f"Value{hint}", value=str(p.get("value") or ""), key=f"{k}.value"
@@ -503,27 +505,58 @@ def _step_controls(i: int, step: StepSpec, sid: str, cols: list) -> None:
     elif step.op == "group":
         by_prev = list(p.get("by") or [])
         by_opts = cols + [c for c in by_prev if c not in cols]  # keep missing ones visible
-        p["by"] = st.multiselect("Group by", by_opts, default=by_prev, key=f"{k}.by")
-        p["agg"] = _select("Aggregate", AGGREGATIONS, p.get("agg", "sum"), f"{k}.agg")
+        p["by"] = st.multiselect(
+            "Group rows by",
+            by_opts,
+            default=by_prev,
+            key=f"{k}.by",
+            help="Rows with the same value here are combined into one.",
+        )
+        p["agg"] = _select(
+            "Combine values using",
+            AGGREGATIONS,
+            p.get("agg", "sum"),
+            f"{k}.agg",
+            help="sum adds them up, mean averages, count counts rows.",
+        )
         val_prev = [c for c in p.get("columns") or [] if c not in p["by"]]
         val_opts = [c for c in cols if c not in p["by"]]
         val_opts += [c for c in val_prev if c not in val_opts]
         p["columns"] = st.multiselect(
-            "Value columns (empty = all numeric)", val_opts, default=val_prev, key=f"{k}.columns"
+            "Columns to combine (blank = every number column)",
+            val_opts,
+            default=val_prev,
+            key=f"{k}.columns",
         )
     elif step.op == "sort":
         p["column"] = _select("Column", cols, p.get("column"), f"{k}.column", keep_missing=True)
-        p["ascending"] = st.toggle("Ascending", value=bool(p.get("ascending")), key=f"{k}.asc")
+        p["ascending"] = st.toggle(
+            "Smallest first",
+            value=bool(p.get("ascending")),
+            key=f"{k}.asc",
+            help="Off puts the largest values at the top.",
+        )
     elif step.op == "top_n":
         p["n"] = int(
-            st.number_input("N", min_value=0, step=1, value=int(p.get("n", 10)), key=f"{k}.n")
+            st.number_input(
+                "How many rows to keep",
+                min_value=0,
+                step=1,
+                value=int(p.get("n", 10)),
+                key=f"{k}.n",
+                help="Keeps the first N rows. Sort first to keep the biggest.",
+            )
         )
     elif step.op == "pivot":
-        p["index"] = _select("Index (x)", cols, p.get("index"), f"{k}.index", keep_missing=True)
-        p["columns"] = _select(
-            "Columns (series)", cols, p.get("columns"), f"{k}.columns", keep_missing=True
+        p["index"] = _select(
+            "Rows (become the x-axis)", cols, p.get("index"), f"{k}.index", keep_missing=True
         )
-        p["values"] = _select("Values", cols, p.get("values"), f"{k}.values", keep_missing=True)
+        p["columns"] = _select(
+            "Columns (one series each)", cols, p.get("columns"), f"{k}.columns", keep_missing=True
+        )
+        p["values"] = _select(
+            "Numbers to plot", cols, p.get("values"), f"{k}.values", keep_missing=True
+        )
     b1, b2, b3, _ = st.columns([1, 1, 1, 3])
     b1.button("↑", key=f"{k}.up", on_click=_move_step, args=(i, -1), help="Move up")
     b2.button("↓", key=f"{k}.down", on_click=_move_step, args=(i, 1), help="Move down")
@@ -584,7 +617,12 @@ def chart_type_control() -> None:
         CHART_TYPES,
         ch.type,
         "chart.type",
-        fmt={"bar": "Bar", "hbar": "H-bar", "line": "Line", "bump": "Bump"}.get,
+        fmt={
+            "bar": ":material/bar_chart: Bar",
+            "hbar": ":material/align_horizontal_left: H-bar",
+            "line": ":material/show_chart: Line",
+            "bump": ":material/shuffle: Bump",
+        }.get,
         label_visibility="collapsed",
         help=" · ".join(CHART_TYPE_LABELS[t] for t in CHART_TYPES),
     )
@@ -806,22 +844,30 @@ def text_tab(spec: ChartSpec) -> None:
 def layout_tab(spec: ChartSpec) -> None:
     lay = spec.style.layout
     lay.x_upper_pad = _opt_number(
-        "X upper pad (fraction of data span)",
+        "Extra room on the right",
         lay.x_upper_pad,
         "layout.x_upper_pad",
         step=0.01,
         min_value=0.0,
+        help="Space beyond the last data point, as a fraction of the data span (0.05 = 5%).",
     )
     lay.align_x_edges = st.toggle(
-        "Pad x edges so end labels stay centred", lay.align_x_edges, key="layout.align_x_edges"
+        "Keep first and last labels inside the chart",
+        lay.align_x_edges,
+        key="layout.align_x_edges",
+        help="Adds a little room at both ends so end labels are not cut off.",
     )
     lay.tick_label_pad = _opt_number(
-        "X tick label pad (pt)", lay.tick_label_pad, "layout.tick_label_pad", step=0.5
+        "Space under the axis (pt)",
+        lay.tick_label_pad,
+        "layout.tick_label_pad",
+        step=0.5,
+        help="Gap between the axis line and its labels. Blank = automatic.",
     )
     c1, c2 = st.columns(2)
     with c1:
         lay.max_label_width = _opt_number(
-            "Max label width (chars)",
+            "Wrap labels after (characters)",
             lay.max_label_width,
             "layout.max_label_width",
             integer=True,
@@ -829,11 +875,15 @@ def layout_tab(spec: ChartSpec) -> None:
         )
     with c2:
         lay.label_width_strategy = _select(
-            "Long labels", LABEL_WIDTH_STRATEGIES, lay.label_width_strategy, "layout.label_strategy"
+            "When a label is too long",
+            LABEL_WIDTH_STRATEGIES,
+            lay.label_width_strategy,
+            "layout.label_strategy",
+            fmt={"wrap": "Wrap onto two lines", "truncate": "Cut it short (…)"}.get,
         )
     st.divider()
     lay.show_footer = st.toggle(
-        "Footer (rule, caption, logo)", lay.show_footer, key="layout.show_footer"
+        "Footer (line, source caption, logo)", lay.show_footer, key="layout.show_footer"
     )
     lay.logo_mode = st.radio(
         "Footer logo",
@@ -858,12 +908,20 @@ def layout_tab(spec: ChartSpec) -> None:
         key="layout.y_axis_side",
     )
     lay.y_tick_labels_inside = st.toggle(
-        "Y tick labels inside the plot", lay.y_tick_labels_inside, key="layout.y_inside"
+        "Put y numbers inside the chart",
+        lay.y_tick_labels_inside,
+        key="layout.y_inside",
+        help="Keeps the outer margin free for data.",
     )
     lay.show_y_axis = st.toggle(
-        "Show y gridlines + labels", lay.show_y_axis, key="layout.show_y_axis"
+        "Show gridlines and y numbers", lay.show_y_axis, key="layout.show_y_axis"
     )
-    lay.show_y_spine = st.toggle("Show y spine", lay.show_y_spine, key="layout.show_y_spine")
+    lay.show_y_spine = st.toggle(
+        "Draw a line along the y-axis",
+        lay.show_y_spine,
+        key="layout.show_y_spine",
+        help="A vertical line at the edge of the chart.",
+    )
 
 
 def _y_sample(spec: ChartSpec, df: Optional[pd.DataFrame]) -> float:
@@ -1069,9 +1127,66 @@ def axes_tab(spec: ChartSpec, df: Optional[pd.DataFrame] = None) -> None:
     _value_format_picker(a, _y_sample(spec, df))
 
 
+def _set_theme(name: str) -> None:
+    _spec().style.colors.theme = name
+
+
+def _theme_series(spec: ChartSpec, df: Optional[pd.DataFrame]) -> list[list[float]]:
+    """Up to four of the user's series (thinned to ≤24 points) to draw on theme cards."""
+    if df is not None and not df.empty:
+        try:
+            cols = [c for c in resolve_columns(spec, df)[1]][:4]
+            out = []
+            for c in cols:
+                vals = [float(v) for v in df[c].tolist()]
+                step = max(1, len(vals) // 24)
+                out.append(vals[::step])
+            if out:
+                return out
+        except (SpecError, KeyError, TypeError, ValueError):
+            pass
+    return [[1, 3, 2, 5, 4, 6], [2, 2, 4, 3, 5, 4], [1, 2, 1, 3, 2, 3]]  # shape only, no data yet
+
+
+def _theme_cards(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
+    c = spec.style.colors
+    series = _theme_series(spec, df)
+    cols = st.columns(2)
+    for i, name in enumerate(THEMES):
+        selected = name == c.theme
+        with cols[i % 2]:
+            st.markdown(
+                f'<div class="ec-theme{" sel" if selected else ""}">'
+                f"{ux.theme_thumbnail_svg(name, series)}</div>",
+                unsafe_allow_html=True,
+            )
+            st.button(
+                ("✓ " if selected else "") + name.replace("_", " "),
+                key=f"colors.theme.{name}",
+                on_click=_set_theme,
+                args=(name,),
+                type="primary" if selected else "secondary",
+                width="stretch",
+            )
+
+
+def _swatch_row(label: str, palette: Sequence[str], active: Optional[int], note: str) -> str:
+    chips = "".join(
+        f'<span class="ec-sq{" on" if j == active else ""}" title="{COLOR_ROLES[j]}" '
+        f'style="background:{col}"></span>'
+        for j, col in enumerate(palette)
+    )
+    dot = palette[active] if active is not None else "transparent"
+    return (
+        f'<div class="ec-ser"><div><span class="ec-dot" style="background:{dot}"></span>'
+        f"<b>{_esc(label)}</b><em>{_esc(note)}</em></div><div class='ec-sqs'>{chips}</div></div>"
+    )
+
+
 def colors_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
     c = spec.style.colors
-    c.theme = _select("Theme", THEMES, c.theme, "colors.theme")
+    _group("Theme")
+    _theme_cards(spec, df)
     labels: list[str] = []
     if df is not None and not df.empty:
         try:
@@ -1081,22 +1196,50 @@ def colors_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
     if not labels:
         st.caption("Per-series colours appear once series are chosen.")
         return
+    palette = ux.theme_palette(c.theme)
     options = ["auto", *COLOR_ROLES, "custom"]
+    role_names = {
+        "auto": "Automatic",
+        "custom": "Custom colour…",
+        **{r: f"{r} · {palette[j]}" for j, r in enumerate(COLOR_ROLES)},
+    }
     new_map: dict[str, str] = {}
     new_alpha: dict[str, float] = {}
     _group("Series")
-    for lbl in labels:
+    for i, lbl in enumerate(labels):
         cur = c.color_map.get(lbl)
         choice = "auto" if cur is None else (cur if cur in COLOR_ROLES else "custom")
+        row = st.container()  # drawn after the select so it shows this run's choice
         c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
         with c1:
-            choice = _select(lbl, options, choice, f"colors.role.{lbl}")
+            choice = _select(
+                "Colour",
+                options,
+                choice,
+                f"colors.role.{lbl}",
+                fmt=role_names.get,
+                label_visibility="collapsed",
+            )
+        hex_now: Optional[str] = None
         if choice == "custom":
-            new_map[lbl] = c2.color_picker(
+            hex_now = c2.color_picker(
                 "Hex", cur if cur and cur.startswith("#") else "#64D2FF", key=f"colors.hex.{lbl}"
             )
+            new_map[lbl] = hex_now
         elif choice != "auto":
             new_map[lbl] = choice
+        if choice == "custom":
+            note, active = f"custom {hex_now}", None
+        elif choice == "auto":
+            active = i % len(palette)
+            note = f"automatic → {COLOR_ROLES[active]}"
+        else:
+            active, note = COLOR_ROLES.index(choice), choice
+        with row:
+            html = _swatch_row(lbl, palette, active, note)
+            if hex_now:
+                html = html.replace("transparent", hex_now, 1)
+            st.markdown(html, unsafe_allow_html=True)
         if spec.chart.type != "bump":
             alpha = st.slider(
                 "Opacity",
@@ -1286,6 +1429,18 @@ _CSS = """
   font-size: .68rem; font-weight: 700; background: rgba(128, 128, 128, .22); }
 .ec-step.done .ec-badge { background: #1F8A4C; color: #fff; }
 .ec-step.next .ec-badge { background: var(--primary-color, #0071E3); color: #fff; }
+.ec-theme { border-radius: 8px; padding: 2px; border: 2px solid transparent;
+  margin-bottom: .25rem; }
+.ec-theme.sel { border-color: var(--primary-color, #0071E3); }
+.ec-ser { display: grid; gap: .3rem; margin: .5rem 0 .15rem; }
+.ec-ser > div:first-child { display: flex; align-items: center; gap: .45rem; font-size: .82rem; }
+.ec-ser em { margin-left: auto; font-style: normal; font-size: .72rem; opacity: .65; }
+.ec-dot { width: .75rem; height: .75rem; border-radius: 50%; flex: none; }
+.ec-sqs { display: flex; gap: .3rem; }
+.ec-sq { width: 1.15rem; height: 1.15rem; border-radius: 5px;
+  border: 1px solid rgba(128, 128, 128, .3); }
+.ec-sq.on { outline: 2px solid var(--primary-color, #0071E3);
+  outline-offset: 1px; }
 .ec-empty { display: grid; gap: .25rem; text-align: center; max-width: 30ch; margin: 0 auto; }
 .ec-empty span { opacity: .65; font-size: .9rem; }
 @media (min-width: 641px) {
