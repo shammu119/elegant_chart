@@ -221,7 +221,6 @@ class BumpMixin(DataMixin):
 
             # ── labels ────────────────────────────────────────────────────
             if show_labels:
-                last_period_idx = n_periods - 1
                 for idx, (lbl, _) in enumerate(series_data):
                     ranks = ranks_matrix[idx]
                     valid = ~np.isnan(ranks)

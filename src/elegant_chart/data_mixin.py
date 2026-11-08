@@ -93,9 +93,7 @@ class DataMixin:
         n = len(x)
         for lbl, vals in series_list:
             if len(vals) != n:
-                raise ValueError(
-                    f"Series {lbl!r} length {len(vals)} does not match x length {n}"
-                )
+                raise ValueError(f"Series {lbl!r} length {len(vals)} does not match x length {n}")
 
     def _validate_values(
         self,
@@ -275,7 +273,11 @@ class DataMixin:
             x_kind = "numeric"
         logger.info(
             "Rendering %s chart %r: %d series x %d points, x-axis=%s",
-            chart_kind, self.title, len(series_list), len(x), x_kind,  # type: ignore[attr-defined]
+            chart_kind,
+            self.title,
+            len(series_list),
+            len(x),
+            x_kind,  # type: ignore[attr-defined]
         )
 
         return x, series_list, x_plan, active_xlim
@@ -321,7 +323,8 @@ class DataMixin:
                 [str(x[i]) for i in visible_idx], enabled=compact_years
             )
             self._apply_tick_labels(  # type: ignore[attr-defined]
-                ax, "x",
+                ax,
+                "x",
                 ticks=visible_idx,
                 labels=visible_lbls,
                 rotation=rotation,
@@ -339,11 +342,14 @@ class DataMixin:
                 )
             else:
                 resolved_date_format = (
-                    x_date_format if x_date_format is not None
+                    x_date_format
+                    if x_date_format is not None
                     else getattr(self, "x_date_format", None)
                 )
                 self._apply_datetime_x_axis(  # type: ignore[attr-defined]
-                    ax, x, max_x_ticks=max_x_ticks,
+                    ax,
+                    x,
+                    max_x_ticks=max_x_ticks,
                     data_bounds=self._x_data_bounds,  # type: ignore[attr-defined]
                     minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
                     date_format=resolved_date_format,
@@ -359,11 +365,10 @@ class DataMixin:
                 minor_ticks=self._x_minor_ticks,  # type: ignore[attr-defined]
             )
             if x_plan.use_numeric_axis_with_labels and x_plan.x_tick_labels_forced:
-                tick_lbls = self._compact_years(
-                    x_plan.x_tick_labels_forced, enabled=compact_years
-                )
+                tick_lbls = self._compact_years(x_plan.x_tick_labels_forced, enabled=compact_years)
                 self._apply_tick_labels(  # type: ignore[attr-defined]
-                    ax, "x",
+                    ax,
+                    "x",
                     ticks=x_plan.positions,
                     labels=tick_lbls,
                     rotation=rotation,
@@ -385,7 +390,7 @@ class DataMixin:
         ``[1001, 1002]`` → ``["1001", "2"]``.
         """
         if not enabled:
-            return [str(l) for l in lbls]
+            return [str(lbl) for lbl in lbls]
 
         out: List[str] = []
         for i, lab in enumerate(lbls):
@@ -423,7 +428,7 @@ class DataMixin:
             return max(1, int(ceil(n / max_x_ticks)))
 
         if auto_x_thinning:
-            max_len = max(len(str(l)) for l in labels)
+            max_len = max(len(str(lbl)) for lbl in labels)
             if max_len <= 4:
                 max_allowed = 10
             elif max_len <= 8:
@@ -511,16 +516,13 @@ class DataMixin:
             chart.export_data("revenue.xlsx")
         """
         if self._last_x is None or self._last_series_list is None:  # type: ignore[attr-defined]
-            raise RuntimeError(
-                "No chart data to export. Call bar() or line() first."
-            )
+            raise RuntimeError("No chart data to export. Call bar() or line() first.")
 
         try:
             import openpyxl  # noqa: F401, PLC0415
         except ImportError as exc:
             raise ImportError(
-                "openpyxl is required for Excel export. "
-                "Install it with: pip install openpyxl"
+                "openpyxl is required for Excel export. Install it with: pip install openpyxl"
             ) from exc
 
         data: dict = {"x": self._last_x}  # type: ignore[attr-defined]
@@ -571,5 +573,6 @@ class DataMixin:
                     )
 
         import matplotlib.pyplot as plt  # noqa: PLC0415
+
         if show:
             plt.show()

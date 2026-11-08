@@ -1,5 +1,5 @@
 # elegant_chart/types.py
-from typing import Callable, Tuple, Union, Optional
+from typing import Callable, Tuple, Union
 
 FormatterCallable = Callable[[float, int], str]
 FormatterSpec = Union[

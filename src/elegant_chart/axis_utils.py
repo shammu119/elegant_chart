@@ -18,7 +18,7 @@ def _nice_candidates(raw_interval: float) -> list[float]:
     base_mag = _magnitude(raw_interval)
     candidates = set()
     for exp_offset in (-1, 0, 1, 2):
-        mag = base_mag * (10 ** exp_offset)
+        mag = base_mag * (10**exp_offset)
         for f in NICE_FRACTIONS:
             candidates.add(round(f * mag, 12))
     return sorted(candidates)

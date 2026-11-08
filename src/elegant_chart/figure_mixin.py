@@ -339,12 +339,14 @@ class FigureMixin:
                 center_y_px = (bbox.y0 + bbox.y1) / 2.0
                 icon_bottom_px = center_y_px - icon_size_px / 2.0
 
-                icon_ax = fig.add_axes([
-                    icon_left_px / fig_w_px,
-                    icon_bottom_px / fig_h_px,
-                    icon_size_px / fig_w_px,
-                    icon_size_px / fig_h_px,
-                ])
+                icon_ax = fig.add_axes(
+                    [
+                        icon_left_px / fig_w_px,
+                        icon_bottom_px / fig_h_px,
+                        icon_size_px / fig_w_px,
+                        icon_size_px / fig_h_px,
+                    ]
+                )
                 icon_ax.imshow(img)
                 icon_ax.axis("off")
         except Exception:

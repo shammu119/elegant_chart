@@ -23,3 +23,6 @@ suggestions.txt
 
 # Brainstorming mockups (local only)
 .superpowers/
+
+# Test coverage data
+.coverage

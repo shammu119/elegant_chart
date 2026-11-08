@@ -121,6 +121,55 @@ df = get_series_df(2307)
 df.to_excel("data.xlsx", index=False)
 ```
 
+## Chart Studio (GUI, optional)
+
+A local, single-user app for going from raw data to a finished chart without
+writing code. It has three panels: **data + reshaping** on the left, a
+**live preview** in the centre, and **style tabs** on the right.
+
+```bash
+pip install -e ".[app]"
+elegant-chart-studio            # or: python -m elegant_chart.app
+```
+
+- **Data**: an MMA series ID (uses the same token and Excel cache as `get_series_df`) or an
+  uploaded `.xlsx` / `.csv` file (pick a sheet for multi-sheet workbooks).
+- **Reshape**: an ordered list of steps: filter, group + aggregate, sort, top N, and
+  pivot (long → wide). You can add, edit, reorder or delete steps. If a step fails, the
+  error shows on that step and the steps after it are skipped. No step is ever skipped
+  silently.
+- **Style**: Chart / Text / Layout / Axes / Colors / Legend tabs cover the library's
+  parameters. Switching between bar, horizontal bar, line and bump keeps the data,
+  the steps and every shared setting.
+- **Preview** is drawn by the real matplotlib renderer at the canonical figsize. Only the
+  `savefig` DPI is lower, so the preview and the export are the same image.
+- **Download** gives you the PNG (1080 × 1350 px, 500 DPI) and `chart_data.xlsx`.
+
+The app is a thin layer over three library functions, which you can also use directly:
+
+```python
+from elegant_chart import ChartSpec, apply_steps, render
+from elegant_chart.render import figure_png_bytes
+from elegant_chart.spec import StepSpec
+
+spec = ChartSpec()
+spec.steps = [
+    StepSpec("filter", {"column": "Type", "operator": "=", "value": "International"}),
+    StepSpec("group", {"by": ["Airline"], "agg": "sum", "columns": ["Total Passengers"]}),
+    StepSpec("sort", {"column": "Total Passengers", "ascending": False}),
+    StepSpec("top_n", {"n": 10}),
+]
+spec.chart.type = "hbar"            # "bar" | "hbar" | "line" | "bump"
+spec.chart.x_col = "Airline"
+spec.chart.y_cols = ["Total Passengers"]
+spec.style.text.title = "Maldives Gateway:\nMost Popular Airlines at VIA"
+
+data = apply_steps(df, spec.steps).df
+result = render(spec, data)         # same Figure as calling ElegantChart(...).bar(...) by hand
+open("chart.png", "wb").write(figure_png_bytes(result.fig, dpi=500))
+result.close()
+```
+
 ## Project Structure
 
 ```
@@ -137,7 +186,12 @@ elegant_chart/
 │       ├── figure_mixin.py
 │       ├── data_mixin.py     ← validation, x-plan, compact_years, shared helpers
 │       ├── get_api_data.py
-│       └── types.py
+│       ├── types.py
+│       ├── spec.py           ← ChartSpec: one serialisable description of a chart
+│       ├── pipeline.py       ← apply_steps(): filter / group / sort / top N / pivot
+│       ├── sources.py        ← MMA series + CSV/Excel upload loaders
+│       ├── render.py         ← render(spec, df): routes the spec onto ElegantChart
+│       └── app/              ← Chart Studio (Streamlit GUI)
 ├── tests/
 │   └── test_charts.py
 ├── .github/
