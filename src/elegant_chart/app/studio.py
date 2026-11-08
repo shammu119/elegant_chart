@@ -101,6 +101,11 @@ def _cached_mma(series_id: int) -> pd.DataFrame:
     return sources.load_mma_series(series_id)
 
 
+@st.cache_data(show_spinner=False, ttl=3600)
+def _cached_mma_info(series_id: int) -> dict:
+    return sources.load_mma_info(series_id)
+
+
 @st.cache_data(show_spinner=False)
 def _cached_sheets(data: bytes) -> list[str]:
     return sources.list_sheets(data)
@@ -236,6 +241,26 @@ def _segmented(
     return out if out is not None else (value if value in options else options[0])
 
 
+def progress_rail(df: Optional[pd.DataFrame]) -> None:
+    """Five-step checklist at the top of the sidebar; names the next thing to do."""
+    spec = _spec()
+    ch = spec.chart
+    items = ux.checklist(
+        has_data=df is not None and not df.empty,
+        chart_ready=bool(df is not None and ch.x_col in df.columns and ch.y_cols),
+        has_title=bool((spec.style.text.title or "").strip()),
+    )
+    rows = []
+    for i, it in enumerate(items, 1):
+        badge = "✓" if it.state == "done" else str(i)
+        rows.append(
+            f'<div class="ec-step {it.state}"><span class="ec-badge">{badge}</span>'
+            f"<div><b>{_esc(it.label)}{' · optional' if it.state == 'optional' else ''}</b>"
+            f"<small>{_esc(it.hint)}</small></div></div>"
+        )
+    st.markdown(f'<div class="ec-rail">{"".join(rows)}</div>', unsafe_allow_html=True)
+
+
 def data_panel() -> Optional[pd.DataFrame]:
     ss, spec = st.session_state, _spec()
     _group("Source")
@@ -265,6 +290,7 @@ def data_panel() -> Optional[pd.DataFrame]:
                 ss.raw_df = _cached_mma(int(sid))
                 ss.raw_key = f"mma:{int(sid)}"
                 ss.source_label = f"MMA series {int(sid)}"
+                ss.series_info = _cached_mma_info(int(sid))
                 ss.load_error = None
             except Exception as exc:  # noqa: BLE001 — shown to the user, never crashes the app
                 ss.load_error = str(exc)
@@ -299,11 +325,17 @@ def data_panel() -> Optional[pd.DataFrame]:
         st.caption("Load a series or a file to start.")
         return None
     name = ss.get("source_label") or "Loaded data"
+    info = ss.get("series_info") if str(ss.get("raw_key", "")).startswith("mma:") else None
+    if info and info.get("name"):
+        name = str(info["name"])
     st.markdown(
         f'<div class="ec-file"><span>{_esc(name)}</span>'
         f"<em>{len(raw):,} rows × {len(raw.columns)} cols</em></div>",
         unsafe_allow_html=True,
     )
+    if info and info.get("name"):
+        extra = [str(info[k]) for k in ("frequency", "unit") if info.get(k)]
+        st.caption(" · ".join([ss.source_label, *extra]))
 
     _group("Steps")
     _sync_steps_from_widgets(spec.steps, ss.step_ids)
@@ -1242,6 +1274,18 @@ _CSS = """
   background: currentColor; }
 .ec-axis em { position: absolute; top: 1.15rem; transform: translateX(-50%); font-style: normal;
   font-size: .68rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ec-rail { display: grid; gap: .1rem; margin: 0 0 .75rem; padding: .5rem .65rem;
+  border-radius: 10px; background: var(--ec-stage); }
+.ec-step { display: grid; grid-template-columns: 1.4rem 1fr; gap: .55rem; padding: .25rem 0;
+  align-items: start; }
+.ec-step b { font-size: .82rem; font-weight: 600; display: block; }
+.ec-step small { font-size: .72rem; opacity: .65; display: block; line-height: 1.3; }
+.ec-step.next small { opacity: 1; }
+.ec-step.optional b { font-weight: 500; }
+.ec-badge { width: 1.25rem; height: 1.25rem; border-radius: 50%; display: grid; place-items: center;
+  font-size: .68rem; font-weight: 700; background: rgba(128, 128, 128, .22); }
+.ec-step.done .ec-badge { background: #1F8A4C; color: #fff; }
+.ec-step.next .ec-badge { background: var(--primary-color, #0071E3); color: #fff; }
 .ec-empty { display: grid; gap: .25rem; text-align: center; max-width: 30ch; margin: 0 auto; }
 .ec-empty span { opacity: .65; font-size: .9rem; }
 @media (min-width: 641px) {
@@ -1277,6 +1321,7 @@ def main() -> None:
         )
 
     with st.sidebar:
+        rail_slot = st.container()  # filled after the inspector, so it sees this run's choices
         df = data_panel()
 
     canvas, inspector = st.columns([2, 1], gap="medium")
@@ -1286,6 +1331,8 @@ def main() -> None:
         mobile_export = st.container(key="mobile_export", horizontal=True)
     with canvas:
         canvas_panel(df)
+    with rail_slot:
+        progress_rail(df)
     with toolbar_export:
         export_buttons(df, "toolbar")
     with mobile_export:

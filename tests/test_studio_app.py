@@ -158,3 +158,53 @@ def test_axes_tab_hides_date_style_for_category_x():
     at.run()
     assert not at.exception, at.exception
     assert "axes.x_date_style" not in at.session_state
+
+
+def _rail_states(at):
+    html = " ".join(m.value for m in at.markdown if "ec-rail" in m.value)
+    import re
+
+    return re.findall(r'class="ec-step (\w+)"', html)
+
+
+def test_rail_points_at_data_in_an_empty_session():
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    assert not at.exception, at.exception
+    assert _rail_states(at) == ["next", "todo", "todo", "optional", "todo"]
+
+
+def test_rail_after_sample_says_ready_to_export():
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    at.button(key="sample").click()
+    at.run()
+    assert not at.exception, at.exception
+    assert _rail_states(at) == ["done", "done", "done", "optional", "next"]
+
+
+def test_rail_asks_for_a_title_when_missing():
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    at.button(key="sample").click()
+    at.run()
+    at.session_state.spec.style.text.title = None
+    at.session_state["text.title"] = ""
+    at.session_state["inspector.section"] = "Text"
+    at.run()
+    assert _rail_states(at) == ["done", "done", "next", "optional", "todo"]
+
+
+def test_mma_series_name_is_shown_after_fetch():
+    at = _app_with_data()
+    at.session_state.raw_key = "mma:101"
+    at.session_state.source_label = "MMA series 101"
+    at.session_state.series_info = {
+        "name": "Quarterly GDP",
+        "frequency": "Quarterly",
+        "unit": "Rufiyaa",
+    }
+    at.run()
+    assert not at.exception, at.exception
+    assert any("Quarterly GDP" in m.value for m in at.markdown)
+    assert any("MMA series 101 · Quarterly · Rufiyaa" in c.value for c in at.caption)
