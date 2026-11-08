@@ -5,5 +5,17 @@
       "Bash(python examples/series_101_domestic_airlines_2023.py)",
       "Bash(python examples/series_101_top10_airlines_yearly.py)"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/docs_check.py"
+          }
+        ]
+      }
+    ]
   }
 }
