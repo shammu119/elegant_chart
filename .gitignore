@@ -26,3 +26,6 @@ suggestions.txt
 
 # Test coverage data
 .coverage
+
+# Guide screenshots and example charts are part of the docs
+!docs/guides/images/*.png

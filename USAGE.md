@@ -1,5 +1,7 @@
 # elegant_chart — Usage Guide
 
+> Prefer clicking to coding? See the [Chart Studio guides](docs/guides/README.md).
+
 ## Contents
 
 1. [Installation](#1-installation)
