@@ -46,3 +46,15 @@ Palettes are highly intentional and bounded by themes:
 - **Auto-Sizing**: Bar widths and spacing are auto-calculated based on data density (datetime vs categorical spacing).
 - **Compact Formatting**: Numbers are aggressively compacted (e.g., 1000 -> 1K) to preserve chart real estate.
 - **Value Labels**: Value labels are printed directly above bars or alongside lines (`zorder=5`) for immediate readability, eliminating the need for users to scan back to the y-axis.
+
+
+## 2. Chart Studio (GUI) UX Principles
+
+The Streamlit app (`src/elegant_chart/app/studio.py`) is for one person but must stay simple and hand-held.
+
+- **Show, don't describe**: a control that takes a format or code lists its options with the *result from the user's own data* (date style, number style, theme cards as mini charts, series colour swatches), with a custom option that previews as the user types. Bad input shows a plain message, never an error.
+- **Previews must be true**: they mirror what the renderer really does. A date style is offered only for real date columns, because the chart ignores a date format on whole numbers such as years.
+- **Plain wording**: labels say what they do ("Label every…", "Small ticks between labels"), each with a one-line help. `ChartSpec` field names do not change for UI wording.
+- **Guided flow**: a sidebar checklist (Data → Chart → Titles → Look → Export) names the next step; empty states and errors say how to fix the problem.
+- **Pure helpers**: logic behind previews and the checklist lives in `app/ux.py` with no Streamlit import, so it is unit-tested (`tests/test_ux.py`); app behaviour is covered with `AppTest` in `tests/test_studio_app.py`.
+- **Docs follow the UI**: when labels or sections change, update `docs/guides/` and the screenshots in `docs/guides/images/` (a Stop hook in `.claude/hooks/docs_check.py` reminds after major `src/` changes).

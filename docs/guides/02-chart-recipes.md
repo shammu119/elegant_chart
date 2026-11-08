@@ -1,7 +1,7 @@
 # 2. Chart recipes
 
 Five step-by-step recipes, one for each kind of chart. Every recipe starts the
-same way: open Chart Studio, choose **Excel / CSV file**, and upload the sample
+same way: open Chart Studio, choose **File**, and upload the sample
 file it names (from `examples/data/`).
 
 New to the app? Do [1. Getting started](01-getting-started.md) first.
@@ -30,7 +30,7 @@ so this is the short version.
 **Steps**
 1. Filter rows: `Type` `=` `International`
 2. Group and total up: by `Airline`, `sum`, value column `Total Passengers`
-3. Sort: `Total Passengers`, Ascending unticked
+3. Sort: `Total Passengers`, **Smallest first** off
 4. Keep the top rows: How many rows to keep `10`
 
 **Chart tab:** Horizontal bar · X column `Airline` · Series `Total Passengers` · ✅ Value labels
@@ -99,12 +99,12 @@ After the pivot, the table has the columns `Year`, `China`, `India` and
 
 **Chart tab:** Line · X column `Year` · Series: all three countries · ✅ Markers
 
-**Axes tab:** X tick step `1` puts a label on every year.
+**Axes tab:** **Label every…** `1` puts a label on every year.
 
 **Colors tab:** Theme `newsroom_muted`
 
 The legend appears on its own because there is more than one line. To change
-how many legend items sit side by side, use the **Legend** tab.
+how many legend items sit side by side, open the **…** section and set **Legend columns**.
 
 <br clear="right">
 

@@ -127,8 +127,9 @@ df.to_excel("data.xlsx", index=False)
 ## Chart Studio (GUI, optional)
 
 A local, single-user app for going from raw data to a finished chart without
-writing code. See the [getting started guide](docs/guides/01-getting-started.md). It has three panels: **data + reshaping** on the left, a
-**live preview** in the centre, and **style tabs** on the right.
+writing code. See the [getting started guide](docs/guides/01-getting-started.md). A toolbar (chart type, export) sits on top of three panels:
+**checklist, data and reshaping** on the left, a **live preview** in the centre, and an
+**inspector** with one settings section at a time on the right.
 
 ```bash
 pip install -e ".[app]"
@@ -141,12 +142,17 @@ elegant-chart-studio            # or: python -m elegant_chart.app
   pivot (long → wide). You can add, edit, reorder or delete steps. If a step fails, the
   error shows on that step and the steps after it are skipped. No step is ever skipped
   silently.
-- **Style**: Chart / Text / Layout / Axes / Colors / Legend tabs cover the library's
+- **Style**: Chart / Text / Axes / Colors / … (layout and legend) cover the library's
   parameters. Switching between bar, horizontal bar, line and bump keeps the data,
   the steps and every shared setting.
+- **Hand-held by design**: a progress checklist (Data → Chart → Titles → Look → Export)
+  names the next step; an MMA fetch shows the series name, frequency and unit; settings
+  that take a format list their options *with the result from your data* (date style,
+  number style, theme cards drawn as mini charts, series colour swatches); every control
+  has plain wording and a short help line. Date styles appear only for real date columns.
 - **Preview** is drawn by the real matplotlib renderer at the canonical figsize. Only the
   `savefig` DPI is lower, so the preview and the export are the same image.
-- **Download** gives you the PNG (1080 × 1350 px, 500 DPI) and `chart_data.xlsx`.
+- **Export PNG** gives you the image (1080 × 1350 px, 500 DPI); **Data .xlsx** gives you `chart_data.xlsx`.
 
 The app is a thin layer over three library functions, which you can also use directly:
 
@@ -194,9 +200,12 @@ elegant_chart/
 │       ├── pipeline.py       ← apply_steps(): filter / group / sort / top N / pivot
 │       ├── sources.py        ← MMA series + CSV/Excel upload loaders
 │       ├── render.py         ← render(spec, df): routes the spec onto ElegantChart
-│       └── app/              ← Chart Studio (Streamlit GUI)
+│       └── app/              ← Chart Studio (Streamlit GUI); ux.py = pure preview/checklist helpers
 ├── tests/
-│   └── test_charts.py
+│   ├── test_charts.py
+│   ├── test_ux.py            ← Chart Studio preview/checklist helpers
+│   └── test_studio_app.py    ← Chart Studio app (Streamlit AppTest)
+├── .claude/hooks/            ← Stop hook: reminds to update docs after major src changes
 ├── .github/
 │   └── workflows/
 │       └── ci.yml

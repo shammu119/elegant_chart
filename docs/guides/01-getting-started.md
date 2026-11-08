@@ -39,37 +39,49 @@ To close the app, go back to the terminal and press `Ctrl + C`.
 
 ![Chart Studio with a finished chart](images/studio_overview.png)
 
-The screen has three panels:
+The screen has a toolbar and three panels:
 
-| Panel | What it's for |
+| Part | What it's for |
 |---|---|
-| **Data** (left) | Load your data, then tidy it with **reshape steps**. A table at the bottom shows the result. |
+| **Toolbar** (top) | Pick the **chart type** (Bar, H-bar, Line, Bump), and **Export PNG** or **Data .xlsx**. |
+| **Sidebar** (left) | A **progress checklist** that shows what to do next, then your data and the **reshape steps**. A table at the bottom shows the result. |
 | **Preview** (centre) | The chart, redrawn about half a second after every change. **What you see is exactly what you download.** |
-| **Style** (right) | Six tabs for everything else: **Chart** (type and columns), **Text**, **Layout**, **Axes**, **Colors**, **Legend**. |
+| **Inspector** (right) | One section at a time: **Chart** (columns and options), **Text**, **Axes**, **Colors**, and **…** (layout and legend). |
+
+**The checklist tells you what's next.** It lists *Data → Chart → Titles →
+Look → Export*. A green tick means a step is done, the blue number is your
+next step ("Next: add a title so readers know what they see"), and *Look* is
+optional. When everything required is done, *Export* says **Ready to export**.
+
+**Settings show you the result before you choose.** Where a setting needs a
+format (a date style, a number style), the options are listed with what they
+print from *your* data, so you pick by looking, not by remembering codes.
+Hover the **?** next to a setting for a short explanation.
 
 ## Step 4: Load the data
 
-1. Under **Source**, choose **Excel / CSV file**.
+1. Under **Source**, choose **File**.
 2. Drag `examples/data/airlines_sample.csv` into the upload box.
 
-The panel shows **42 rows × 4 columns loaded**. Each row is one airline in one
+The sidebar shows **42 rows × 4 cols** under the file name. Each row is one airline in one
 year, so Emirates appears three times: 2021, 2022 and 2023.
 
 > **Using MMA data instead?** Choose **MMA series**, type the series number and
-> click **Fetch**. The app uses the same token as your Python scripts (the
+> click **Fetch**. The app then shows the series name, how often it is
+> published and its unit, so you can check you got the right one. It uses the same token as your Python scripts (the
 > `MMA_API_TOKEN` setting or a `TOKEN.txt` file), and it never shows the token.
 
 ## Step 5: Shape the data with steps
 
 We want one bar per airline: its total international passengers, biggest
-first, top 10 only. That takes four steps. For each one, pick it in
-**Add step**, click **＋ Add**, then fill it in:
+first, top 10 only. That takes four steps. For each one, click
+**＋ Add step**, pick the step, then fill it in:
 
 | # | Step | Fill in | What it does |
 |---|---|---|---|
-| 1 | **Filter rows** | Column `Type`, Op `=`, Value `International` | Keeps only international flights |
+| 1 | **Filter rows** | Column `Type`, Condition `=`, Value `International` | Keeps only international flights |
 | 2 | **Group and total up** | Group by `Airline`, Combine values using `sum`, Columns to combine `Total Passengers` | Adds the three years together, giving one row per airline |
-| 3 | **Sort** | Column `Total Passengers`, leave **Ascending** unticked | Puts the biggest airline first |
+| 3 | **Sort** | Column `Total Passengers`, leave **Smallest first** off | Puts the biggest airline first |
 | 4 | **Keep the top rows** | How many rows to keep `10` | Keeps the first 10 rows |
 
 <img src="images/studio_data_panel.png" width="360" alt="The four reshape steps filled in">
@@ -77,24 +89,24 @@ first, top 10 only. That takes four steps. For each one, pick it in
 Under each step, a small note such as **→ 12 rows** tells you how many rows
 are left after it. The table at the bottom shows the final result.
 
-> **Tip:** In step 2, always choose **Value columns**. If you leave it empty,
+> **Tip:** In step 2, always choose **Columns to combine**. If you leave it empty,
 > the app adds up *every* number column, including `Year`, which gives you
 > nonsense values like 6066.
 
 ## Step 6: Choose the chart
 
-Open the **Chart** tab on the right.
+Open the **Chart** section on the right.
 
-1. **Chart type**: choose **Horizontal bar**. Long airline names are easier to read on the side.
+1. **Chart type** (in the toolbar): choose **H-bar**. Long airline names are easier to read on the side.
 2. **X column**: `Airline` (this is the category for each bar; the app usually picks it for you).
-3. **Series column(s)**: `Total Passengers`.
+3. **Series**: `Total Passengers`.
 4. Tick **Value labels** to print each number at the end of its bar.
 
 <img src="images/studio_chart_tab.png" width="360" alt="Chart tab settings">
 
 ## Step 7: Add words
 
-Open the **Text** tab:
+Open the **Text** section:
 
 - **Title**: `Top 10 airlines` then press **Enter** and type `by passengers`.
   Short two-line titles look best.
@@ -104,15 +116,15 @@ Open the **Text** tab:
 
 ## Step 8: Download
 
-Click **Download PNG** to get the finished 1080 × 1350 image, and
-**Download chart_data.xlsx** to get the numbers behind the chart.
+Click **Export PNG** in the toolbar to get the finished 1080 × 1350 image, and
+**Data .xlsx** to get the numbers behind the chart.
 
 You've made your first chart. 🎉
 
 ## Good to know
 
 - **Switching chart type keeps everything.** Try **Bar** or **Line** in the
-  Chart tab: your data, steps, title and colours all stay.
+  toolbar: your data, steps, title and colours all stay.
 - **Nothing is saved when you close the app.** Download what you need before
   you close it.
 - **If something goes wrong, the app tells you.** A red message appears on the
