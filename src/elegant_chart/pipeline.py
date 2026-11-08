@@ -135,9 +135,8 @@ def _group(df: pd.DataFrame, p: Mapping[str, Any]) -> pd.DataFrame:
 
 def _sort(df: pd.DataFrame, p: Mapping[str, Any]) -> pd.DataFrame:
     col = _need_column(df, p.get("column"))
-    return df.sort_values(col, ascending=bool(p.get("ascending", False)), kind="stable").reset_index(
-        drop=True
-    )
+    ascending = bool(p.get("ascending", False))
+    return df.sort_values(col, ascending=ascending, kind="stable").reset_index(drop=True)
 
 
 def _top_n(df: pd.DataFrame, p: Mapping[str, Any]) -> pd.DataFrame:

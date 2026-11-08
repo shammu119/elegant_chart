@@ -41,7 +41,8 @@ def test_airline_example_matches_hand_written_pandas(flights):
      ("<", "2022", 2), ("≤", "2022", 4), ("in", "2021, 2023", 5)],
 )
 def test_filter_operators_coerce_numeric(flights, op, value, expected):
-    res = apply_steps(flights, [{"op": "filter", "params": {"column": "Year", "operator": op, "value": value}}])
+    step = {"op": "filter", "params": {"column": "Year", "operator": op, "value": value}}
+    res = apply_steps(flights, [step])
     assert res.ok, res.steps[0].error
     assert len(res.df) == expected
 
@@ -54,7 +55,8 @@ def test_group_count_and_mean(flights):
 
 
 def test_pivot_long_to_wide(flights):
-    res = apply_steps(flights, [StepSpec("pivot", {"index": "Year", "columns": "Airline", "values": "Pax"})])
+    step = StepSpec("pivot", {"index": "Year", "columns": "Airline", "values": "Pax"})
+    res = apply_steps(flights, [step])
     assert res.ok, res.steps[0].error
     assert list(res.df.columns) == ["Year", "EK", "QR", "UL"]
     assert res.df.set_index("Year").loc[2023, "UL"] == 3.0
@@ -74,7 +76,8 @@ def test_failure_stops_pipeline_and_keeps_last_good(flights):
 
 
 def test_bad_number_reports_error(flights):
-    res = apply_steps(flights, [StepSpec("filter", {"column": "Pax", "operator": ">", "value": "abc"})])
+    step = StepSpec("filter", {"column": "Pax", "operator": ">", "value": "abc"})
+    res = apply_steps(flights, [step])
     assert res.failed_index == 0
     assert "number" in res.steps[0].error
 
