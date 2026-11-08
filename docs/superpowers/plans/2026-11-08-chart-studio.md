@@ -12,7 +12,7 @@ live preview produced by the real matplotlib renderer, and downloads of the
 
 ```
 data source ──► apply_steps(df, steps) ──► render(spec, df) ──► Figure
- (io.py)          (pipeline.py)             (render.py)          │
+ (sources.py)          (pipeline.py)             (render.py)          │
                                                                  ├─► preview PNG (low DPI, same figsize)
 ChartSpec (spec.py) ── drives all three ─────────────────────────└─► download PNG (500 DPI) + xlsx
      ▲
@@ -40,12 +40,12 @@ ChartSpec (spec.py) ── drives all three ────────────
 |---|---|
 | `src/elegant_chart/spec.py` | `ChartSpec` and nested dataclasses; `to_dict`/`from_dict`; constants (`CHART_TYPES`, `STEP_OPS`, …) |
 | `src/elegant_chart/pipeline.py` | `apply_steps(df, steps) -> PipelineResult`; one pure pandas op per step; stops at first failure |
-| `src/elegant_chart/io.py` | `load_source(...)`: MMA via `get_series_df`, CSV/XLSX bytes → DataFrame, `list_sheets` |
+| `src/elegant_chart/sources.py` | `load_source(...)`: MMA via `get_series_df`, CSV/XLSX bytes → DataFrame, `list_sheets` |
 | `src/elegant_chart/render.py` | `build_chart_kwargs`, `build_call_kwargs`, `render(spec, df) -> RenderResult`, `figure_png_bytes`, `chart_data_xlsx_bytes` |
 | `src/elegant_chart/app/__init__.py` | `main()` console entry: launches `streamlit run studio.py` |
 | `src/elegant_chart/app/__main__.py` | `python -m elegant_chart.app` |
 | `src/elegant_chart/app/studio.py` | Streamlit script: three panels, widgets ↔ spec, preview, downloads |
-| `tests/test_spec.py`, `tests/test_pipeline.py`, `tests/test_render.py`, `tests/test_io.py` | Unit tests for the library layers |
+| `tests/test_spec.py`, `tests/test_pipeline.py`, `tests/test_render.py`, `tests/test_sources.py` | Unit tests for the library layers |
 | `tests/test_studio_app.py` | Streamlit `AppTest` smoke test (skipped if Streamlit not installed) |
 | `pyproject.toml` | `app` extra + `elegant-chart-studio` script |
 | `README.md` / `USAGE.md` | How to install and launch Chart Studio; `render(ChartSpec(...))` from Python |
@@ -112,7 +112,7 @@ Steps:
 
 ## Task 3 — Data sources
 
-**Files:** create `src/elegant_chart/io.py`, `tests/test_io.py`
+**Files:** create `src/elegant_chart/sources.py`, `tests/test_sources.py`
 
 - `list_sheets(data: bytes) -> list[str]` (xlsx only).
 - `read_uploaded(data: bytes, name: str, sheet: str|None) -> DataFrame`
