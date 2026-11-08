@@ -887,8 +887,7 @@ def test_bars_and_value_labels_clear_ytick_labels(value_labels):
     ticks = [
         t.get_window_extent(r)
         for t in ax.texts
-        if t.get_text() in {"0", "100K", "200K", "300K"}
-        and abs(t.get_position()[0] - 0.99) < 1e-6
+        if t.get_text() in {"0", "100K", "200K", "300K"} and abs(t.get_position()[0] - 0.99) < 1e-6
     ]
     assert ticks
     others = [p.get_window_extent(r) for p in ax.patches] + [
