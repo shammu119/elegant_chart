@@ -955,13 +955,14 @@ def _axis_strip(labels: list[str]) -> None:
 def _date_format_picker(a: Any, df: Optional[pd.DataFrame], x_col: Optional[str]) -> None:
     """Pick an x-label date style by what it prints, not by its code."""
     dates = None
-    if df is not None and x_col in (df.columns if df is not None else []):
+    if df is not None and x_col in df.columns and pd.api.types.is_datetime64_any_dtype(df[x_col]):
         dates = ux.sample_dates(df[x_col].tolist())
     if dates is None:
         st.caption(
-            "X values here are names or numbers, not dates, so no date format is needed."
-            if df is not None
-            else "Load data to see what your x labels will look like."
+            "Load data to see what your x labels will look like."
+            if df is None
+            else "Date styles apply to date columns. Your x values are names or whole numbers "
+            "(such as years), which print as they are."
         )
         return
     auto = "auto"
@@ -1020,8 +1021,8 @@ def _value_format_picker(a: Any, sample: float) -> None:
         "plain": f"**{r('plain')}**  ·  Plain",
         "percent": "**10%**  ·  Percent (0.1 becomes 10%)",
         "norm_max": (
-            f"**{r('norm_max', sample / 2, decimals=dec, max_value=sample)}**"
-            "  ·  Share of the largest value (half of it shown)"
+            f"**{r('norm_max', sample, decimals=dec, max_value=sample)}**"
+            "  ·  Share of the largest value (the largest shows as 1)"
         ),
         "custom": "Custom… (type your own format)",
     }
@@ -1063,7 +1064,8 @@ def axes_tab(spec: ChartSpec, df: Optional[pd.DataFrame] = None) -> None:
         st.caption("Bump charts place their own rank axis; these settings don't apply.")
     _group("X-axis labels")
     if ctype in ("bar", "line"):
-        _date_format_picker(a, df, spec.chart.x_col)
+        x_col = spec.chart.x_col or (default_x_col(df) if df is not None and not df.empty else None)
+        _date_format_picker(a, df, x_col)
     c1, c2 = st.columns(2)
     with c1:
         a.x_tick_step = _opt_number(

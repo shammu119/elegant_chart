@@ -68,9 +68,9 @@ first, top 10 only. That takes four steps. For each one, pick it in
 | # | Step | Fill in | What it does |
 |---|---|---|---|
 | 1 | **Filter rows** | Column `Type`, Op `=`, Value `International` | Keeps only international flights |
-| 2 | **Group + aggregate** | Group by `Airline`, Aggregate `sum`, Value columns `Total Passengers` | Adds the three years together, giving one row per airline |
+| 2 | **Group and total up** | Group by `Airline`, Combine values using `sum`, Columns to combine `Total Passengers` | Adds the three years together, giving one row per airline |
 | 3 | **Sort** | Column `Total Passengers`, leave **Ascending** unticked | Puts the biggest airline first |
-| 4 | **Top N** | N `10` | Keeps the first 10 rows |
+| 4 | **Keep the top rows** | How many rows to keep `10` | Keeps the first 10 rows |
 
 <img src="images/studio_data_panel.png" width="360" alt="The four reshape steps filled in">
 

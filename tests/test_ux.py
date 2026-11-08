@@ -4,12 +4,17 @@ import pandas as pd
 
 from elegant_chart.app import ux
 
-YEARS = [2019, 2020, 2021, 2022, 2023, 2024]
+YEARS = [pd.Timestamp(y, 1, 1) for y in range(2019, 2025)]  # yearly dates
 
 
-def test_sample_dates_treats_year_integers_as_years():
+def test_sample_dates_accepts_real_dates():
     dates = ux.sample_dates(YEARS)
-    assert [d.year for d in dates] == YEARS
+    assert [d.year for d in dates] == [2019, 2020, 2021, 2022, 2023, 2024]
+
+
+def test_sample_dates_rejects_plain_year_numbers():
+    # The chart does not apply a date format to integer years, so no preview.
+    assert ux.sample_dates([2019, 2020, 2021]) is None
 
 
 def test_sample_dates_keeps_first_and_last_and_caps_at_six():

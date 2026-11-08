@@ -111,10 +111,19 @@ def test_bump_controls_update_spec():
 
 
 def _sample_on_axes_tab():
+    """A line chart over a real date column, with the Axes section open."""
     at = AppTest.from_file(STUDIO, default_timeout=60)
     at.run()
-    at.button(key="sample").click()
-    at.run()
+    at.session_state.raw_df = pd.DataFrame(
+        {
+            "Year": pd.to_datetime([f"{y}-01-01" for y in range(2019, 2025)]),
+            "China": [281952, 14537, 5341, 80011, 194593, 262154],
+            "India": [154327, 64906, 298835, 236932, 208493, 176336],
+        }
+    )
+    at.session_state.raw_key = "dates"
+    at.session_state.spec.chart.type = "line"
+    at.session_state["chart.type"] = "line"
     at.session_state["inspector.section"] = "Axes"
     at.run()
     assert not at.exception, at.exception
@@ -151,8 +160,16 @@ def test_axes_bad_custom_number_format_shows_message_not_error():
     assert any("Can't read" in w.value for w in at.warning)
 
 
-def test_axes_tab_hides_date_style_for_category_x():
+def test_axes_tab_hides_date_style_for_category_and_integer_year_x():
     at = _app_with_data()
+    at.run()
+    at.session_state["inspector.section"] = "Axes"
+    at.run()
+    assert not at.exception, at.exception
+    assert "axes.x_date_style" not in at.session_state
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    at.button(key="sample").click()  # Year is whole numbers here
     at.run()
     at.session_state["inspector.section"] = "Axes"
     at.run()

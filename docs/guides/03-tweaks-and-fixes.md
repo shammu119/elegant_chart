@@ -9,11 +9,11 @@ and watch the chart.
 | I want to… | Where | What to do |
 |---|---|---|
 | Break the title onto two lines | Text | Press **Enter** inside **Title** |
-| Thin out crowded x-axis labels | Axes | Set **Max x ticks**, for example `5`, or set an **X tick step** |
-| Label every year | Axes | **X tick step** `1` |
-| Show months as *Jan 24* | Axes | **X date format** `%b %y` |
-| Show years only on a monthly chart | Axes | **X date format** `%Y` together with **Year tick interval (line)** `1` |
-| Add a small tick between labels | Axes | **X minor ticks per interval** `1` (for example, mid-year) |
+| Thin out crowded x-axis labels | Axes | Set **Most labels to show**, for example `5`, or set an **Label every…** |
+| Label every year | Axes | **Label every…** `1` |
+| Show months as *Jan 24* | Axes | **Date style** → Custom, code `%b %y` (needs a date column) |
+| Show years only on a monthly chart | Axes | **Date style** `Year` together with **Label every… years (line)** `1` |
+| Add a small tick between labels | Axes | **Small ticks between labels** `1` (for example, mid-year) |
 | Write `'21` instead of `2021` | Chart | Tick **Compact years** |
 | Tilt long x labels | Chart | **X label rotation**, for example `45` |
 | Cut or wrap long category names | Layout | **Max label width (chars)** plus **Long labels**: `wrap` or `truncate` |
@@ -29,7 +29,7 @@ and watch the chart.
 | Change the legend layout | Legend | **Legend columns** |
 | Remove or replace the footer logo | Layout | **Footer logo**: `Off`, or `Custom` and upload an image |
 | Remove the whole footer | Layout | Untick **Footer (rule, caption, logo)** |
-| Add space after the last data point | Layout | **X upper pad**, for example `0.05` for 5% of the data range |
+| Add space after the last data point | Layout | **Extra room on the right**, for example `0.05` for 5% of the data range |
 
 Any number box that shows **auto** works out a good value on its own. To go
 back to automatic, clear the box.
@@ -52,7 +52,7 @@ The first series always gets the theme's **primary** colour, the second gets
 |---|---|---|
 | A red message on a reshape step | That step can't run. Usually a column it uses has disappeared, for example after a Group or Pivot. | Read the message. A column marked **⚠ (missing)** needs a new choice. The steps after it are skipped until you fix it. |
 | Strange totals such as `6066` for Year | A **Group** step added up the `Year` column too | In that step, choose **Value columns** explicitly |
-| Bars or lines stacked on top of each other, wrong-looking chart | There are still several rows per x value | Add a **Group + aggregate** step, or a **Pivot** for one column per group |
+| Bars or lines stacked on top of each other, wrong-looking chart | There are still several rows per x value | Add a **Group and total up** step, or a **Pivot** for one column per group |
 | Dates show as plain text labels | The column isn't stored as a date | In CSV files, write dates as `2024-03-01`. In Excel, format the cells as dates. |
 | "Series column(s) must be numeric" | A number column contains text, such as `n/a` or `1,234` | Clean the file, or filter those rows out |
 | "There is no data to plot" | A filter removed every row | Check the filter's spelling and capital letters. `=` must match exactly. |

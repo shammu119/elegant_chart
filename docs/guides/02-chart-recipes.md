@@ -29,9 +29,9 @@ so this is the short version.
 
 **Steps**
 1. Filter rows: `Type` `=` `International`
-2. Group + aggregate: by `Airline`, `sum`, value column `Total Passengers`
+2. Group and total up: by `Airline`, `sum`, value column `Total Passengers`
 3. Sort: `Total Passengers`, Ascending unticked
-4. Top N: `10`
+4. Keep the top rows: How many rows to keep `10`
 
 **Chart tab:** Horizontal bar · X column `Airline` · Series `Total Passengers` · ✅ Value labels
 
@@ -57,8 +57,8 @@ steps are needed.
 
 **Colors tab:** Theme `consulting_light` gives a white background.
 
-**Axes tab:** X date format `%b %y`. This labels the axis *Jul 22, Jan 23, …*.
-For years only, use `%Y`, or set **Year tick interval (line)** to `1`.
+**Axes tab:** Date style → Custom, code `%b %y` (needs a date column). This labels the axis *Jul 22, Jan 23, …*.
+For years only, use `%Y`, or set **Label every… years (line)** to `1`.
 
 **Text tab:**
 - Title `Tourist arrivals⏎climb year on year`
@@ -92,7 +92,7 @@ does.
 
 **Steps**
 1. Filter rows: `Market` `in` `China, India, Russia` (with `in`, separate the values with commas)
-2. Pivot (long → wide): Index (x) `Year` · Columns (series) `Market` · Values `Arrivals`
+2. Pivot (long → wide): Rows (become the x-axis) `Year` · Columns (one series each) `Market` · Numbers to plot `Arrivals`
 
 After the pivot, the table has the columns `Year`, `China`, `India` and
 `Russia`.
@@ -120,7 +120,7 @@ A bump chart shows **who is 1st, 2nd, 3rd…** in each year, rather than the
 values themselves.
 
 **Steps**
-1. Pivot (long → wide): Index (x) `Year` · Columns (series) `Market` · Values `Arrivals`
+1. Pivot (long → wide): Rows (become the x-axis) `Year` · Columns (one series each) `Market` · Numbers to plot `Arrivals`
 
 **Chart tab**
 - Chart type: **Bump (ranking)** · X column `Year` · Series: all six countries
@@ -143,7 +143,7 @@ values themselves.
 
 **Steps**
 1. Filter rows: `Airline` `in` `Emirates, Qatar Airways, IndiGo`
-2. Pivot (long → wide): Index (x) `Year` · Columns (series) `Airline` · Values `Total Passengers`
+2. Pivot (long → wide): Rows (become the x-axis) `Year` · Columns (one series each) `Airline` · Numbers to plot `Total Passengers`
 
 **Chart tab:** Bar · X column `Year` · Series: the three airlines · ✅ **Stacked**
 

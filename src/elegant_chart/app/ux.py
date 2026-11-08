@@ -9,8 +9,8 @@ The previews mirror the formatters the chart really uses
 from __future__ import annotations
 
 import re
-import warnings
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Optional, Sequence
 
 import pandas as pd
@@ -38,27 +38,14 @@ class DatePreview:
 def sample_dates(values: Sequence[Any]) -> Optional[list[pd.Timestamp]]:
     """Up to six evenly spread dates from ``values`` (first and last always kept).
 
-    Whole numbers between 1900 and 2100 count as years.  Returns ``None`` when
-    the values are not dates (e.g. category names), so callers can hide the
-    date controls instead of previewing nonsense.
+    Only real dates count: the chart applies a date format to date columns, not to
+    whole numbers like 2019 or to category names.  Returns ``None`` otherwise, so
+    callers hide the date controls instead of previewing something that won't happen.
     """
     vals = [v for v in list(values) if not pd.isna(v)]
-    if not vals:
+    if not vals or not all(isinstance(v, datetime) for v in vals):
         return None
-    try:
-        if all(
-            isinstance(v, (int, float)) and float(v).is_integer() and 1900 <= v <= 2100
-            for v in vals
-        ):
-            dates = [pd.Timestamp(int(v), 1, 1) for v in vals]
-        elif all(isinstance(v, (int, float)) for v in vals):
-            return None
-        else:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                dates = list(pd.to_datetime(pd.Series(vals)))
-    except (ValueError, TypeError, OverflowError):
-        return None
+    dates = [pd.Timestamp(v) for v in vals]
     if len(dates) <= _MAX_SAMPLES:
         return dates
     last = len(dates) - 1
