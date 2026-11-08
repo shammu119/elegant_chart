@@ -2,10 +2,12 @@
 """
 Chart Studio — Streamlit script.
 
-Three panels: data + reshaping (left), live preview (centre), style tabs
-(right).  Every widget reads from and writes to one ``ChartSpec`` kept in
-``st.session_state``; the preview is drawn by :func:`elegant_chart.render`
-— the real matplotlib renderer — so preview and download are the same image.
+Inspector layout: a toolbar (chart type, exports), a sidebar for data and
+reshape steps, the chart on a sticky canvas, and an inspector on the right
+with one settings section open at a time.  Every widget reads from and
+writes to one ``ChartSpec`` kept in ``st.session_state``; the preview is
+drawn by :func:`elegant_chart.render` — the real matplotlib renderer — so
+preview and download are the same image.
 
 Run with ``elegant-chart-studio`` (or ``streamlit run`` on this file).
 """
@@ -18,6 +20,8 @@ import os
 import tempfile
 import time
 import uuid
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Optional, Sequence
 
 import matplotlib
@@ -55,6 +59,9 @@ from elegant_chart.spec import (  # noqa: E402
 
 # Same figsize as the export — only the savefig DPI differs (220 → 475 × 594 px).
 PREVIEW_DPI = 220
+PREVIEW_WIDTH = 440  # css px on the canvas
+SIDEBAR_WIDTH = 340  # px, roughly a quarter of a laptop screen
+SAMPLE_CSV = Path(__file__).with_name("sample_arrivals.csv")
 STEP_LABELS = {
     "filter": "Filter rows",
     "group": "Group + aggregate",
@@ -201,16 +208,44 @@ def _save_upload(f: Any) -> str:
 # ── left panel: data + reshape ───────────────────────────────────────────────
 
 
+def _group(label: str) -> None:
+    """Small uppercase group label (SOURCE, STEPS, …) in place of big headings."""
+    st.markdown(f'<div class="ec-gh">{label}</div>', unsafe_allow_html=True)
+
+
+def _segmented(
+    label: str,
+    options: Sequence[Any],
+    value: Any,
+    key: str,
+    fmt: Optional[Callable[[Any], str]] = None,
+    **kw: Any,
+) -> Any:
+    """Single-choice segmented control that can't be left empty.
+
+    The spec value seeds the widget only on first draw; after that the widget's
+    own state wins (so callbacks can set ``st.session_state[key]`` safely).
+    """
+    options = list(options)
+    if key not in st.session_state:
+        kw["default"] = value if value in options else options[0]
+    out = st.segmented_control(
+        label, options, key=key, required=True, format_func=fmt or (lambda o: str(o)), **kw
+    )
+    return out if out is not None else (value if value in options else options[0])
+
+
 def data_panel() -> Optional[pd.DataFrame]:
     ss, spec = st.session_state, _spec()
-    st.subheader("Data")
-    kind = st.radio(
+    _group("Source")
+    kind = _segmented(
         "Source",
         ["mma", "file"],
-        horizontal=True,
-        key="source.kind",
-        index=0 if spec.source.kind != "file" else 1,
-        format_func=lambda k: "MMA series" if k == "mma" else "Excel / CSV file",
+        spec.source.kind if spec.source.kind in ("mma", "file") else "mma",
+        "source.kind",
+        fmt=lambda k: "MMA series" if k == "mma" else "File",
+        label_visibility="collapsed",
+        width="stretch",
     )
     spec.source.kind = kind
 
@@ -228,13 +263,16 @@ def data_panel() -> Optional[pd.DataFrame]:
             try:
                 ss.raw_df = _cached_mma(int(sid))
                 ss.raw_key = f"mma:{int(sid)}"
+                ss.source_label = f"MMA series {int(sid)}"
                 ss.load_error = None
             except Exception as exc:  # noqa: BLE001 — shown to the user, never crashes the app
                 ss.load_error = str(exc)
-        st.caption("Uses MMA_API_TOKEN / TOKEN.txt and the local Excel cache.")
     else:
         up = st.file_uploader(
-            "Upload .xlsx or .csv", type=["xlsx", "xlsm", "csv"], key="source.upload"
+            "Upload .xlsx or .csv",
+            type=["xlsx", "xlsm", "csv"],
+            key="source.upload",
+            label_visibility="collapsed",
         )
         if up is not None:
             data = up.getvalue()
@@ -248,6 +286,7 @@ def data_panel() -> Optional[pd.DataFrame]:
                     ss.raw_df = _cached_upload(data, up.name, sheet)
                     ss.raw_key = key
                     ss.load_error = None
+                ss.source_label = up.name if sheet is None else f"{up.name} · {sheet}"
                 spec.source.name, spec.source.sheet = up.name, sheet
             except Exception as exc:  # noqa: BLE001
                 ss.load_error = str(exc)
@@ -256,39 +295,136 @@ def data_panel() -> Optional[pd.DataFrame]:
         st.error(ss.load_error)
     raw = ss.raw_df
     if raw is None:
-        st.info("Load data to start.")
+        st.caption("Load a series or a file to start.")
         return None
-    st.caption(f"{len(raw):,} rows × {len(raw.columns)} columns loaded")
+    name = ss.get("source_label") or "Loaded data"
+    st.markdown(
+        f'<div class="ec-file"><span>{_esc(name)}</span>'
+        f"<em>{len(raw):,} rows × {len(raw.columns)} cols</em></div>",
+        unsafe_allow_html=True,
+    )
 
-    st.subheader("Reshape")
-    current = raw
-    failed = False
+    _group("Steps")
+    _sync_steps_from_widgets(spec.steps, ss.step_ids)
+    run = _pipeline(raw, spec.steps)
     for i, step in enumerate(list(spec.steps)):
         sid = ss.step_ids[i]
-        title = f"{i + 1}. {STEP_LABELS.get(step.op, step.op)}"
-        if failed:
-            with st.expander(f"{title} — skipped", expanded=False):
+        res = run.results[i]
+        label = f"{i + 1}  ·  {_step_summary(step)}"
+        if res.status == "ok":
+            label += f"  —  {res.rows:,} rows"
+        elif res.status == "error":
+            label += "  —  ⚠ error"
+        else:
+            label += "  —  skipped"
+        open_now = res.status == "error" or ss.get("open_step") == sid
+        with st.expander(label, expanded=open_now, key=f"step.{sid}.exp"):
+            if res.status == "skipped":
                 st.caption("Skipped: an earlier step failed.")
-                _step_controls(i, step, sid, list(current.columns))
+            _step_controls(i, step, sid, run.columns_in[i])
+            if res.status == "error":
+                st.error(res.error)
+    with st.popover("＋ Add step", type="tertiary"):
+        for op in STEP_OPS:
+            st.button(
+                STEP_LABELS.get(op, op),
+                key=f"add_step.{op}",
+                on_click=_add_step,
+                args=(op,),
+                type="tertiary",
+            )
+
+    _group("Result")
+    result = run.df
+    st.dataframe(result.head(200), height=240, width="stretch", hide_index=True)
+    if len(result) > 200:
+        st.caption(f"Showing 200 of {len(result):,} rows")
+    return result
+
+
+def _esc(text: Any) -> str:
+    import html  # noqa: PLC0415
+
+    return html.escape(str(text))
+
+
+# Widget key suffix → step param, per op (see ``_step_controls``).
+_STEP_WIDGET_PARAMS = {
+    "filter": {"column": "column", "op": "operator", "value": "value"},
+    "group": {"by": "by", "agg": "agg", "columns": "columns"},
+    "sort": {"column": "column", "asc": "ascending"},
+    "top_n": {"n": "n"},
+    "pivot": {"index": "index", "columns": "columns", "values": "values"},
+}
+
+
+def _sync_steps_from_widgets(steps: list, step_ids: list) -> None:
+    """Copy this run's widget values into the step params *before* drawing.
+
+    The step rows show a summary and a row count in their (collapsed) header,
+    which is drawn before the step's own widgets.  Reading the widget state
+    first keeps that header current instead of one interaction behind.
+    """
+    ss = st.session_state
+    for step, sid in zip(steps, step_ids):
+        for suffix, param in _STEP_WIDGET_PARAMS.get(step.op, {}).items():
+            key = f"step.{sid}.{suffix}"
+            if key in ss:
+                val = ss[key]
+                step.params[param] = int(val) if param == "n" and val is not None else val
+
+
+@dataclass
+class _PipelineRun:
+    df: pd.DataFrame
+    results: list  # pipeline.StepResult per step
+    columns_in: list  # input columns of each step (for the step's column pickers)
+
+
+def _pipeline(raw: pd.DataFrame, steps: list) -> _PipelineRun:
+    """Run the reshape steps, memoised on (data, steps).
+
+    Style edits rerun the whole script; this keeps them from re-running the
+    pandas pipeline when neither the data nor the steps changed.
+    """
+    ss = st.session_state
+    key = json.dumps(
+        [ss.get("raw_key"), [[s.op, s.params] for s in steps]], sort_keys=True, default=str
+    )
+    memo = ss.get("pipeline_memo")
+    if memo and memo[0] == key:
+        return memo[1]
+    cols_in, current, failed = [], raw, False
+    for step in steps:
+        cols_in.append(list(current.columns))
+        if failed:
             continue
-        with st.expander(title, expanded=True):
-            _step_controls(i, step, sid, list(current.columns))
-            try:
-                current = apply_step(current, step.op, step.params)
-                st.caption(f"→ {len(current):,} rows")
-            except Exception as exc:  # noqa: BLE001
-                failed = True
-                st.error(str(exc) or exc.__class__.__name__)
+        try:
+            current = apply_step(current, step.op, step.params)
+        except Exception:  # noqa: BLE001 — reported by run_pipeline below
+            failed = True
+    result = run_pipeline(raw, steps)  # the library pipeline is the source of truth
+    run = _PipelineRun(result.df, result.steps, cols_in)
+    ss.pipeline_memo = (key, run)
+    return run
 
-    c1, c2 = st.columns([2, 1], vertical_alignment="bottom")
-    new_op = c1.selectbox("Add step", STEP_OPS, format_func=STEP_LABELS.get, key="new_step_op")
-    c2.button("＋ Add", on_click=_add_step, args=(new_op,), width="stretch")
 
-    result = run_pipeline(raw, spec.steps)  # the library pipeline is the source of truth
-    st.dataframe(result.df.head(200), height=240, width="stretch")
-    if len(result.df) > 200:
-        st.caption(f"Showing 200 of {len(result.df):,} rows")
-    return result.df
+def _step_summary(step: StepSpec) -> str:
+    p = step.params
+    try:
+        if step.op == "filter" and p.get("column") is not None:
+            return f"Filter · {p['column']} {p.get('operator', '=')} {p.get('value') or '…'}"
+        if step.op == "group" and p.get("by"):
+            return f"Group · {', '.join(map(str, p['by']))} · {p.get('agg', 'sum')}"
+        if step.op == "sort" and p.get("column") is not None:
+            return f"Sort · {p['column']} {'↑' if p.get('ascending') else '↓'}"
+        if step.op == "top_n":
+            return f"Top {int(p.get('n', 10))}"
+        if step.op == "pivot" and p.get("index") is not None:
+            return f"Pivot · {p['index']} × {p.get('columns')}"
+    except Exception:  # noqa: BLE001 — a summary must never break the panel
+        pass
+    return STEP_LABELS.get(step.op, step.op)
 
 
 def _add_step(op: str) -> None:
@@ -302,6 +438,7 @@ def _add_step(op: str) -> None:
     }
     ss.spec.steps.append(StepSpec(op, dict(defaults.get(op, {}))))
     ss.step_ids.append(uuid.uuid4().hex[:8])
+    ss.open_step = ss.step_ids[-1]  # a new step opens so it can be set up
 
 
 def _move_step(i: int, delta: int) -> None:
@@ -343,7 +480,7 @@ def _step_controls(i: int, step: StepSpec, sid: str, cols: list) -> None:
         )
     elif step.op == "sort":
         p["column"] = _select("Column", cols, p.get("column"), f"{k}.column", keep_missing=True)
-        p["ascending"] = st.checkbox("Ascending", value=bool(p.get("ascending")), key=f"{k}.asc")
+        p["ascending"] = st.toggle("Ascending", value=bool(p.get("ascending")), key=f"{k}.asc")
     elif step.op == "top_n":
         p["n"] = int(
             st.number_input("N", min_value=0, step=1, value=int(p.get("n", 10)), key=f"{k}.n")
@@ -363,21 +500,38 @@ def _step_controls(i: int, step: StepSpec, sid: str, cols: list) -> None:
 # ── right panel: style tabs ──────────────────────────────────────────────────
 
 
-def style_panel(df: Optional[pd.DataFrame]) -> None:
+INSPECTOR_SECTIONS = ["Chart", "Text", "Axes", "Colors", "More"]
+INSPECTOR_LABELS = {"More": "…"}  # Layout + legend live under "…"
+
+
+def inspector_panel(df: Optional[pd.DataFrame]) -> None:
+    """Right-hand inspector: one section at a time, picked by a segmented control.
+
+    Only the open section's widgets are drawn, which keeps each rerun light.
+    Every widget is seeded from the spec, so switching sections loses nothing.
+    """
     spec = _spec()
-    st.subheader("Style")
-    tabs = st.tabs(["Chart", "Text", "Layout", "Axes", "Colors", "Legend"])
-    with tabs[0]:
+    section = _segmented(
+        "Inspector",
+        INSPECTOR_SECTIONS,
+        "Chart",
+        "inspector.section",
+        fmt=lambda o: INSPECTOR_LABELS.get(o, o),
+        label_visibility="collapsed",
+        width="stretch",
+    )
+    if section == "Chart":
         chart_tab(spec, df)
-    with tabs[1]:
+    elif section == "Text":
         text_tab(spec)
-    with tabs[2]:
-        layout_tab(spec)
-    with tabs[3]:
+    elif section == "Axes":
         axes_tab(spec)
-    with tabs[4]:
+    elif section == "Colors":
         colors_tab(spec, df)
-    with tabs[5]:
+    else:
+        _group("Layout")
+        layout_tab(spec)
+        _group("Legend")
         st.caption("A legend is drawn only when two or more series are plotted.")
         spec.style.legend.legend_ncol = _opt_number(
             "Legend columns",
@@ -389,16 +543,22 @@ def style_panel(df: Optional[pd.DataFrame]) -> None:
         )
 
 
-def chart_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
-    ch = spec.chart
-    ch.type = st.radio(
+def chart_type_control() -> None:
+    """Chart type, drawn in the toolbar."""
+    ch = _spec().chart
+    ch.type = _segmented(
         "Chart type",
         CHART_TYPES,
-        index=CHART_TYPES.index(ch.type),
-        format_func=CHART_TYPE_LABELS.get,
-        horizontal=True,
-        key="chart.type",
+        ch.type,
+        "chart.type",
+        fmt={"bar": "Bar", "hbar": "H-bar", "line": "Line", "bump": "Bump"}.get,
+        label_visibility="collapsed",
+        help=" · ".join(CHART_TYPE_LABELS[t] for t in CHART_TYPES),
     )
+
+
+def chart_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
+    ch = spec.chart
     if df is not None and not df.empty:
         cols = list(df.columns)
         ss = st.session_state
@@ -411,10 +571,10 @@ def chart_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
                 for key in ("chart.x_col", "chart.y_cols"):
                     ss.pop(key, None)
             ss.chart_cols = cols
-        ch.x_col = _select("X column (categories / periods)", cols, ch.x_col, "chart.x_col")
+        ch.x_col = _select("X column", cols, ch.x_col, "chart.x_col")
         numeric = [c for c in df.select_dtypes("number").columns if c != ch.x_col]
         ch.y_cols = st.multiselect(
-            "Series column(s)",
+            "Series",
             numeric,
             default=[c for c in ch.y_cols if c in numeric] or numeric,
             key="chart.y_cols",
@@ -423,31 +583,32 @@ def chart_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
         st.caption("Load data to choose columns.")
 
     if ch.type in ("bar", "hbar", "line"):
-        ch.show_value_labels = st.checkbox(
+        ch.show_value_labels = st.toggle(
             "Value labels", ch.show_value_labels, key="chart.show_value_labels"
         )
+    if ch.type == "line":
+        ch.markers = st.toggle("Markers", ch.markers, key="chart.markers")
     if ch.type in ("bar", "line"):
-        c1, c2 = st.columns(2)
-        ch.rotation = c1.number_input(
+        ch.compact_years = st.toggle(
+            "Compact years ('21)", ch.compact_years, key="chart.compact_years"
+        )
+    if ch.type == "line":
+        ch.linewidth = _opt_number(
+            "Line width (pt)", ch.linewidth, "chart.linewidth", step=0.1, min_value=0.0
+        )
+    if ch.type == "bar":
+        ch.stacked = st.toggle("Stacked", ch.stacked, key="chart.stacked")
+    if ch.type in ("bar", "hbar"):
+        ch.bar_width = _opt_number(
+            "Bar width", ch.bar_width, "chart.bar_width", step=0.05, min_value=0.0
+        )
+    if ch.type in ("bar", "line"):
+        ch.rotation = st.number_input(
             "X label rotation",
             value=float(ch.rotation),
             step=15.0,
             key="chart.rotation",
             format="%g",
-        )
-        ch.compact_years = c2.checkbox(
-            "Compact years ('21)", ch.compact_years, key="chart.compact_years"
-        )
-    if ch.type == "bar":
-        ch.stacked = st.checkbox("Stacked", ch.stacked, key="chart.stacked")
-    if ch.type in ("bar", "hbar"):
-        ch.bar_width = _opt_number(
-            "Bar width", ch.bar_width, "chart.bar_width", step=0.05, min_value=0.0
-        )
-    if ch.type == "line":
-        ch.markers = st.checkbox("Markers", ch.markers, key="chart.markers")
-        ch.linewidth = _opt_number(
-            "Line width (pt)", ch.linewidth, "chart.linewidth", step=0.1, min_value=0.0
         )
     if ch.type == "bump":
         series = list(ch.y_cols) if ch.y_cols else []
@@ -457,7 +618,7 @@ def chart_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
             default=[s for s in ch.highlight if s in series],
             key="chart.highlight",
         )
-        ch.ascending = st.checkbox("Smallest value = rank 1", ch.ascending, key="chart.ascending")
+        ch.ascending = st.toggle("Smallest value = rank 1", ch.ascending, key="chart.ascending")
         bump_style_controls(ch, series)
     if ch.type in ("hbar", "bump"):
         logos_editor(spec, df)
@@ -465,7 +626,7 @@ def chart_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
 
 def bump_style_controls(ch: Any, series: list) -> None:
     """Ghost-line colour/opacity, line widths and label text for bump charts."""
-    st.markdown("**Lines**")
+    _group("Lines")
     c1, c2 = st.columns(2)
     with c1:
         ch.hero_linewidth = _opt_number(
@@ -490,7 +651,17 @@ def bump_style_controls(ch: Any, series: list) -> None:
     )
     if not series:
         return
-    st.markdown("**Label text**")
+    n = len(ch.label_display)
+    if st.button(
+        f"Edit label text…{f'  ({n} set)' if n else ''}", key="chart.label_dialog", width="stretch"
+    ):
+        _label_text_dialog(series)
+
+
+@st.dialog("Label text")
+def _label_text_dialog(series: list) -> None:
+    """Long per-series label table, in a dialog so it doesn't stretch the inspector."""
+    ch = _spec().chart
     st.caption("Leave blank to use the series name. Type `\\n` for a line break.")
     rows = [
         {"series": s, "label": ch.label_display.get(s, "").replace("\n", "\\n")} for s in series
@@ -507,6 +678,8 @@ def bump_style_controls(ch: Any, series: list) -> None:
         for r in edited.to_dict("records")
         if r.get("label") is not None and not pd.isna(r["label"]) and str(r["label"]).strip()
     }
+    if st.button("Done", type="primary"):
+        st.rerun()
 
 
 def logos_editor(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
@@ -518,7 +691,7 @@ def logos_editor(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
         if ch.type == "hbar"
         else [str(c) for c in ch.y_cols]
     )
-    st.markdown("**Label logos**")
+    _group("Label logos")
     files = st.file_uploader(
         "Logo images (matched to labels by file name)",
         type=IMAGE_TYPES,
@@ -565,7 +738,7 @@ def text_tab(spec: ChartSpec) -> None:
     c1, c2 = st.columns(2)
     t.xlabel = c1.text_input("X label", t.xlabel or "", key="text.xlabel") or None
     t.ylabel = c2.text_input("Y label", t.ylabel or "", key="text.ylabel") or None
-    st.markdown("**Annotations**")
+    _group("Annotations")
     st.caption(
         "x: a year, number, date (2021-06-30) or category name. dx/dy: text offset in points."
     )
@@ -606,7 +779,7 @@ def layout_tab(spec: ChartSpec) -> None:
         step=0.01,
         min_value=0.0,
     )
-    lay.align_x_edges = st.checkbox(
+    lay.align_x_edges = st.toggle(
         "Pad x edges so end labels stay centred", lay.align_x_edges, key="layout.align_x_edges"
     )
     lay.tick_label_pad = _opt_number(
@@ -626,7 +799,7 @@ def layout_tab(spec: ChartSpec) -> None:
             "Long labels", LABEL_WIDTH_STRATEGIES, lay.label_width_strategy, "layout.label_strategy"
         )
     st.divider()
-    lay.show_footer = st.checkbox(
+    lay.show_footer = st.toggle(
         "Footer (rule, caption, logo)", lay.show_footer, key="layout.show_footer"
     )
     lay.logo_mode = st.radio(
@@ -651,13 +824,13 @@ def layout_tab(spec: ChartSpec) -> None:
         index=0 if lay.y_axis_side == "right" else 1,
         key="layout.y_axis_side",
     )
-    lay.y_tick_labels_inside = st.checkbox(
+    lay.y_tick_labels_inside = st.toggle(
         "Y tick labels inside the plot", lay.y_tick_labels_inside, key="layout.y_inside"
     )
-    lay.show_y_axis = st.checkbox(
+    lay.show_y_axis = st.toggle(
         "Show y gridlines + labels", lay.show_y_axis, key="layout.show_y_axis"
     )
-    lay.show_y_spine = st.checkbox("Show y spine", lay.show_y_spine, key="layout.show_y_spine")
+    lay.show_y_spine = st.toggle("Show y spine", lay.show_y_spine, key="layout.show_y_spine")
 
 
 def axes_tab(spec: ChartSpec) -> None:
@@ -689,7 +862,7 @@ def axes_tab(spec: ChartSpec) -> None:
             integer=True,
             min_value=1,
         )
-    a.auto_x_thinning = st.checkbox(
+    a.auto_x_thinning = st.toggle(
         "Auto-thin crowded x labels", a.auto_x_thinning, key="axes.auto_x_thinning"
     )
     a.x_date_format = (
@@ -741,10 +914,11 @@ def colors_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
     options = ["auto", *COLOR_ROLES, "custom"]
     new_map: dict[str, str] = {}
     new_alpha: dict[str, float] = {}
-    for i, lbl in enumerate(labels):
+    _group("Series")
+    for lbl in labels:
         cur = c.color_map.get(lbl)
         choice = "auto" if cur is None else (cur if cur in COLOR_ROLES else "custom")
-        c1, c2, c3 = st.columns([2, 1, 2], vertical_alignment="bottom")
+        c1, c2 = st.columns([3, 1], vertical_alignment="bottom")
         with c1:
             choice = _select(lbl, options, choice, f"colors.role.{lbl}")
         if choice == "custom":
@@ -754,71 +928,113 @@ def colors_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
         elif choice != "auto":
             new_map[lbl] = choice
         if spec.chart.type != "bump":
-            alpha = c3.slider(
+            alpha = st.slider(
                 "Opacity",
                 0.0,
                 1.0,
                 float(c.alpha_map.get(lbl, 1.0)),
                 0.05,
                 key=f"colors.alpha.{lbl}",
+                label_visibility="collapsed",
+                format="%.2f opacity",
             )
             if alpha < 1.0:
                 new_alpha[lbl] = alpha
     c.color_map, c.alpha_map = new_map, new_alpha
 
 
-# ── centre panel: preview + downloads ────────────────────────────────────────
+# ── centre: canvas + exports ─────────────────────────────────────────────────
 
 
-def preview_panel(df: Optional[pd.DataFrame]) -> None:
+def canvas_panel(df: Optional[pd.DataFrame]) -> None:
+    """The chart on a neutral stage.  Sticky on wide screens (see ``_CSS``)."""
     ss, spec = st.session_state, _spec()
-    st.subheader("Preview")
-    if df is None:
-        st.info("The live preview appears here once data is loaded.")
-        return
-    key = _preview_key(spec, df)
-    cached = ss.preview_cache.get(key)
-    if cached is None:
-        t0 = time.perf_counter()
-        try:
-            res = render(spec, df)
+    with st.container(key="canvas", horizontal_alignment="center", vertical_alignment="center"):
+        if df is None:
+            st.markdown(
+                '<div class="ec-empty"><b>Your chart appears here</b>'
+                "<span>Load an MMA series or a file from the sidebar, "
+                "or start from the sample.</span></div>",
+                unsafe_allow_html=True,
+                width="stretch",
+            )
+            st.button("Try sample data", type="primary", on_click=_load_sample, key="sample")
+            return
+        key = _preview_key(spec, df)
+        cached = ss.preview_cache.get(key)
+        if cached is None:
+            t0 = time.perf_counter()
             try:
-                png = figure_png_bytes(res.fig, PREVIEW_DPI)
-            finally:
-                res.close()
-            cached = {"png": png, "error": None, "secs": time.perf_counter() - t0}
-        except Exception as exc:  # noqa: BLE001 — errors are shown, never crash the app
-            cached = {"png": None, "error": str(exc) or exc.__class__.__name__, "secs": 0.0}
-        ss.preview_cache = {key: cached}  # keep only the latest
-    if cached["error"]:
-        st.error(cached["error"])
-        return
-    st.image(cached["png"], width=480)
-    st.caption(
-        f"Rendered in {cached['secs']:.2f} s · preview {PREVIEW_DPI} dpi, "
-        f"export {EXPORT_DPI} dpi (1080 × 1350 px)"
-    )
+                res = render(spec, df)
+                try:
+                    png = figure_png_bytes(res.fig, PREVIEW_DPI)
+                finally:
+                    res.close()
+                cached = {"png": png, "error": None, "secs": time.perf_counter() - t0}
+            except Exception as exc:  # noqa: BLE001 — errors are shown, never crash the app
+                cached = {"png": None, "error": str(exc) or exc.__class__.__name__, "secs": 0.0}
+            ss.preview_cache = {key: cached}  # keep only the latest
+        if cached["error"]:
+            st.error(cached["error"])
+            return
+        st.image(cached["png"], width=PREVIEW_WIDTH)
+        st.markdown(
+            f'<div class="ec-stat">{cached["secs"]:.2f} s · 1080 × 1350 px export</div>',
+            unsafe_allow_html=True,
+        )
 
-    frozen = ChartSpec.from_dict(spec.to_dict())
+
+def export_buttons(df: Optional[pd.DataFrame], where: str) -> None:
+    """Data .xlsx + Export PNG.  Drawn in the toolbar and (phones) under the inspector."""
+    if df is None:
+        st.button("Export PNG", type="primary", disabled=True, key=f"export.{where}.off")
+        return
+    frozen = ChartSpec.from_dict(_spec().to_dict())
     data = df.copy()
-    c1, c2 = st.columns(2)
-    c1.download_button(
-        "Download PNG",
+    st.download_button(
+        "Data .xlsx",
+        data=lambda: _export_xlsx(frozen, data),
+        file_name="chart_data.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        on_click="ignore",
+        key=f"export.{where}.xlsx",
+    )
+    st.download_button(
+        "Export PNG",
         data=lambda: _export_png(frozen, data),
         file_name="chart.png",
         mime="image/png",
         type="primary",
         on_click="ignore",
-        width="stretch",
+        key=f"export.{where}.png",
     )
-    c2.download_button(
-        "Download chart_data.xlsx",
-        data=lambda: _export_xlsx(frozen, data),
-        file_name="chart_data.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        on_click="ignore",
-        width="stretch",
-    )
+
+
+def _load_sample() -> None:
+    """Open the bundled arrivals sample as a finished line chart."""
+    ss = st.session_state
+    for k in list(ss.keys()):
+        if isinstance(k, str) and k.split(".")[0] in ("chart", "text", "step", "source"):
+            del ss[k]
+    ss.pop("chart_cols", None)
+    ss.raw_df = pd.read_csv(SAMPLE_CSV)
+    ss.raw_key = "sample"
+    ss.source_label = "Sample · tourist arrivals by market"
+    ss.load_error = None
+    spec = ChartSpec()
+    spec.source.kind = "file"
+    spec.source.name = SAMPLE_CSV.name
+    spec.steps = [StepSpec("pivot", {"index": "Year", "columns": "Market", "values": "Arrivals"})]
+    spec.chart.type = "line"
+    spec.chart.x_col = "Year"
+    spec.chart.y_cols = ["China", "India", "Russia", "United Kingdom"]
+    spec.style.text.title = "Tourist arrivals by\nsource market"
+    spec.style.text.subtitle = "Arrivals per year, top four markets"
+    spec.style.text.caption = "Source: Ministry of Tourism"
+    ss.spec = spec
+    ss.step_ids = [uuid.uuid4().hex[:8]]
+    # Point the already-drawn segmented controls at the sample's choices.
+    ss["chart.type"], ss["source.kind"] = spec.chart.type, spec.source.kind
 
 
 def _preview_key(spec: ChartSpec, df: pd.DataFrame) -> str:
@@ -846,22 +1062,77 @@ def _export_xlsx(spec: ChartSpec, df: pd.DataFrame) -> bytes:
 
 # ── page ─────────────────────────────────────────────────────────────────────
 
+_CSS = """
+<style>
+:root { --ec-stage: rgba(118, 118, 128, 0.08); --ec-rule: rgba(128, 128, 128, 0.18); }
+.block-container { padding-top: 3rem; padding-bottom: 2rem; max-width: none; }
+[data-testid="stAppDeployButton"] { display: none; }
+.ec-logo { display: flex; align-items: center; gap: .5rem; font-weight: 700;
+  font-size: 1.05rem; letter-spacing: -.01em; white-space: nowrap; }
+.ec-logo i { width: 1.15rem; height: 1.15rem; border-radius: .35rem; flex: none;
+  background: linear-gradient(160deg, #0077CC, #64D2FF); }
+.ec-gh { font-size: .7rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+  opacity: .55; margin: .5rem 0 0; line-height: 1.4; }
+.ec-file { display: flex; justify-content: space-between; gap: .5rem; font-size: .82rem;
+  padding: .4rem .6rem; border-radius: 8px; background: var(--ec-stage); }
+.ec-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ec-file em { font-style: normal; opacity: .6; white-space: nowrap;
+  font-variant-numeric: tabular-nums; }
+.st-key-toolbar { border-bottom: 1px solid var(--ec-rule); padding-bottom: .65rem;
+  margin-bottom: .5rem; }
+.st-key-canvas { background: var(--ec-stage); border-radius: 16px; padding: 1.5rem 1rem 1rem;
+  min-height: min(78vh, 720px); }
+.st-key-canvas img { border-radius: 6px; box-shadow: 0 4px 18px rgba(0, 0, 0, .18); }
+.ec-stat { text-align: center; font-size: .75rem; opacity: .6;
+  font-variant-numeric: tabular-nums; }
+.ec-empty { display: grid; gap: .25rem; text-align: center; max-width: 30ch; margin: 0 auto; }
+.ec-empty span { opacity: .65; font-size: .9rem; }
+@media (min-width: 641px) {
+  [data-testid="stColumn"]:has(.st-key-canvas) { position: sticky; top: 3.75rem;
+    align-self: flex-start; }
+  .st-key-mobile_export { display: none; }
+}
+@media (max-width: 640px) {
+  .st-key-toolbar_export { display: none; }
+  .st-key-canvas { min-height: auto; }
+}
+</style>
+"""
+
 
 def main() -> None:
-    st.set_page_config(page_title="Chart Studio", layout="wide")
-    _state()
-    st.markdown(
-        "<style>.block-container{padding-top:1.5rem;padding-bottom:1rem}</style>",
-        unsafe_allow_html=True,
+    st.set_page_config(
+        page_title="Chart Studio",
+        page_icon="📈",
+        layout="wide",
+        initial_sidebar_state=SIDEBAR_WIDTH,  # px; still auto-hides on phones
     )
-    left, centre, right = st.columns([1.15, 1.25, 1.2], gap="medium")
-    with left:
+    _state()
+    st.markdown(_CSS, unsafe_allow_html=True)
+
+    with st.container(key="toolbar"):
+        brand, mid, actions = st.columns([1, 2, 1], vertical_alignment="center")
+        brand.markdown('<div class="ec-logo"><i></i>Chart Studio</div>', unsafe_allow_html=True)
+        with mid.container(horizontal_alignment="center"):
+            chart_type_control()
+        toolbar_export = actions.container(
+            key="toolbar_export", horizontal=True, horizontal_alignment="right"
+        )
+
+    with st.sidebar:
         df = data_panel()
-    # Style widgets update the spec, so draw them before the preview renders it.
-    with right:
-        style_panel(df)
-    with centre:
-        preview_panel(df)
+
+    canvas, inspector = st.columns([2, 1], gap="medium")
+    # The inspector updates the spec, so draw it before the canvas renders it.
+    with inspector:
+        inspector_panel(df)
+        mobile_export = st.container(key="mobile_export", horizontal=True)
+    with canvas:
+        canvas_panel(df)
+    with toolbar_export:
+        export_buttons(df, "toolbar")
+    with mobile_export:
+        export_buttons(df, "mobile")
 
 
 main()

@@ -31,7 +31,20 @@ def test_empty_session_runs():
     at = AppTest.from_file(STUDIO, default_timeout=60)
     at.run()
     assert not at.exception
-    assert any("Load data" in i.value for i in at.info)
+    assert at.button(key="sample")  # empty canvas offers the sample
+
+
+def test_sample_data_opens_a_finished_chart():
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    at.button(key="sample").click()
+    at.run()
+    assert not at.exception, at.exception
+    assert not at.error, [e.value for e in at.error]
+    spec = at.session_state.spec
+    assert spec.chart.type == "line"
+    assert spec.chart.y_cols == ["China", "India", "Russia", "United Kingdom"]
+    assert len(at.get("image")) == 1
 
 
 def test_airline_flow_builds_preview_and_type_switch_keeps_title():
@@ -48,8 +61,10 @@ def test_airline_flow_builds_preview_and_type_switch_keeps_title():
     assert not at.exception, at.exception
     assert not at.error, [e.value for e in at.error]
 
+    at.segmented_control(key="inspector.section").set_value("Text")
+    at.run()
     at.text_area(key="text.title").input("Maldives Gateway:\nMost Popular Airlines")
-    at.radio(key="chart.type").set_value("hbar")
+    at.segmented_control(key="chart.type").set_value("hbar")
     at.run()
     assert not at.exception
     assert not at.error, [e.value for e in at.error]
@@ -59,7 +74,7 @@ def test_airline_flow_builds_preview_and_type_switch_keeps_title():
     assert len(at.get("image")) == 1
 
     for ctype in ("line", "bar"):
-        at.radio(key="chart.type").set_value(ctype)
+        at.segmented_control(key="chart.type").set_value(ctype)
         at.run()
         assert not at.exception
         assert at.session_state.spec.style.text.title == "Maldives Gateway:\nMost Popular Airlines"
@@ -85,7 +100,7 @@ def test_bump_controls_update_spec():
     )
     at.session_state.raw_key = "bump"
     at.run()
-    at.radio(key="chart.type").set_value("bump")
+    at.segmented_control(key="chart.type").set_value("bump")
     at.run()
     at.slider(key="chart.other_alpha").set_value(0.25)
     at.run()

@@ -1,0 +1,37 @@
+# Chart Studio theme — Apple-style restraint: system SF type, one blue accent,
+# soft filled controls, light and dark variants.  Passed to Streamlit as
+# ``--theme.base`` by the ``elegant-chart-studio`` launcher.
+
+[theme]
+primaryColor = "#0071E3"
+font = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+headingFont = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+headingFontWeights = 600
+baseFontSize = 14
+baseRadius = "8px"
+showWidgetBorder = false
+showSidebarBorder = true
+
+[theme.light]
+primaryColor = "#0071E3"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F0F2"
+textColor = "#1D1D1F"
+borderColor = "#E6E6E8"
+linkColor = "#0071E3"
+
+[theme.light.sidebar]
+backgroundColor = "#F7F7F5"
+secondaryBackgroundColor = "#EBEBED"
+
+[theme.dark]
+primaryColor = "#2997FF"
+backgroundColor = "#1C1C1E"
+secondaryBackgroundColor = "#2C2C2E"
+textColor = "#F5F5F7"
+borderColor = "#2F2F32"
+linkColor = "#2997FF"
+
+[theme.dark.sidebar]
+backgroundColor = "#232325"
+secondaryBackgroundColor = "#2F2F32"

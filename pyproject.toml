@@ -36,7 +36,7 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-elegant_chart = ["assets/fonts/*", "assets/logo/*"]
+elegant_chart = ["assets/fonts/*", "assets/logo/*", "app/*.csv", "app/*.toml"]
 
 [tool.ruff]
 line-length = 100

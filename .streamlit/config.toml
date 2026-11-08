@@ -1,0 +1,10 @@
+# Lets a plain `streamlit run src/elegant_chart/app/studio.py` from the repo
+# root pick up the same theme the `elegant-chart-studio` launcher uses.
+[theme]
+base = "src/elegant_chart/app/theme.toml"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

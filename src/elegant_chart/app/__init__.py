@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 STUDIO_SCRIPT = Path(__file__).with_name("studio.py")
+THEME_FILE = Path(__file__).with_name("theme.toml")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -24,7 +25,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
     args = list(sys.argv[1:] if argv is None else argv)
-    if not any(a.startswith("--browser.gatherUsageStats") for a in args):
-        args += ["--browser.gatherUsageStats", "false"]  # personal, local tool
+    defaults = {
+        "--browser.gatherUsageStats": "false",  # personal, local tool
+        "--theme.base": str(THEME_FILE),  # Apple-style light/dark theme
+        "--client.toolbarMode": "minimal",
+    }
+    for flag, value in defaults.items():
+        if not any(a.startswith(flag) for a in args):
+            args += [flag, value]
     sys.argv = ["streamlit", "run", str(STUDIO_SCRIPT), *args]
     return stcli.main()
