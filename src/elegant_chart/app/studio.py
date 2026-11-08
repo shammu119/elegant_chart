@@ -32,6 +32,7 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
 from elegant_chart import sources  # noqa: E402
+from elegant_chart.app import ux  # noqa: E402
 from elegant_chart.pipeline import apply_step  # noqa: E402
 from elegant_chart.pipeline import apply_steps as run_pipeline  # noqa: E402
 from elegant_chart.render import (  # noqa: E402
@@ -525,7 +526,7 @@ def inspector_panel(df: Optional[pd.DataFrame]) -> None:
     elif section == "Text":
         text_tab(spec)
     elif section == "Axes":
-        axes_tab(spec)
+        axes_tab(spec, df)
     elif section == "Colors":
         colors_tab(spec, df)
     else:
@@ -833,58 +834,114 @@ def layout_tab(spec: ChartSpec) -> None:
     lay.show_y_spine = st.toggle("Show y spine", lay.show_y_spine, key="layout.show_y_spine")
 
 
-def axes_tab(spec: ChartSpec) -> None:
-    a, ctype = spec.style.axes, spec.chart.type
-    if ctype == "bump":
-        st.caption("Bump charts place their own rank axis; these settings don't apply.")
-    c1, c2 = st.columns(2)
-    with c1:
-        a.x_tick_step = _opt_number("X tick step", a.x_tick_step, "axes.x_tick_step")
-        a.y_tick_step = _opt_number("Y tick step", a.y_tick_step, "axes.y_tick_step")
-        a.x_minor_ticks = _opt_number(
-            "X minor ticks per interval",
-            a.x_minor_ticks,
-            "axes.x_minor_ticks",
-            integer=True,
-            min_value=0,
-        )
-    with c2:
-        a.max_x_ticks = _opt_number(
-            "Max x ticks", a.max_x_ticks, "axes.max_x_ticks", integer=True, min_value=1
-        )
-        a.max_y_ticks = _opt_number(
-            "Max y ticks", a.max_y_ticks, "axes.max_y_ticks", integer=True, min_value=1
-        )
-        a.x_year_tick_interval = _opt_number(
-            "Year tick interval (line)",
-            a.x_year_tick_interval,
-            "axes.x_year_tick_interval",
-            integer=True,
-            min_value=1,
-        )
-    a.auto_x_thinning = st.toggle(
-        "Auto-thin crowded x labels", a.auto_x_thinning, key="axes.auto_x_thinning"
+def _y_sample(spec: ChartSpec, df: Optional[pd.DataFrame]) -> float:
+    """Largest plotted value — the number the format previews are drawn from."""
+    if df is not None and not df.empty:
+        cols = [c for c in spec.chart.y_cols if c in df.columns]
+        try:
+            top = float(df[cols].max().max()) if cols else float("nan")
+        except (TypeError, ValueError):
+            top = float("nan")
+        if top == top and top != 0:  # not NaN, not zero
+            return top
+    return 12345.0
+
+
+def _axis_strip(labels: list[str]) -> None:
+    """Mini x-axis showing the labels a format will print."""
+    n = len(labels)
+    ticks = "".join(
+        f'<i style="left:{(i * 100 / (n - 1) if n > 1 else 0):.1f}%"></i>'
+        f'<em style="left:{(i * 100 / (n - 1) if n > 1 else 0):.1f}%">{_esc(t)}</em>'
+        for i, t in enumerate(labels)
     )
-    a.x_date_format = (
-        st.text_input(
-            "X date format (e.g. %Y, %b %y)", a.x_date_format or "", key="axes.x_date_format"
-        )
-        or None
+    st.markdown(
+        '<div class="ec-strip"><span>Your axis will read</span>'
+        f'<div class="ec-axis">{ticks}</div></div>',
+        unsafe_allow_html=True,
     )
-    a.xlim = _range("X", a.xlim, "axes.xlim")
-    a.ylim = _range("Y", a.ylim, "axes.ylim")
-    a.y_formatter = _select(
-        "Value format",
-        Y_FORMATTERS,
-        a.y_formatter,
-        "axes.y_formatter",
-        fmt={
-            "compact": "Compact (1.2K)",
-            "plain": "Plain",
-            "percent": "Percent (0.1 → 10%)",
-            "norm_max": "Normalised to max",
-            "custom": "Custom",
-        }.get,
+
+
+def _date_format_picker(a: Any, df: Optional[pd.DataFrame], x_col: Optional[str]) -> None:
+    """Pick an x-label date style by what it prints, not by its code."""
+    dates = None
+    if df is not None and x_col in (df.columns if df is not None else []):
+        dates = ux.sample_dates(df[x_col].tolist())
+    if dates is None:
+        st.caption(
+            "X values here are names or numbers, not dates, so no date format is needed."
+            if df is not None
+            else "Load data to see what your x labels will look like."
+        )
+        return
+    auto = "auto"
+    presets = [c for c, _ in ux.DATE_PRESETS]
+    current = a.x_date_format
+    state_key = "axes.x_date_style"
+    if state_key not in st.session_state:
+        st.session_state[state_key] = (
+            auto if not current else (current if current in presets else "custom")
+        )
+    names = dict(ux.DATE_PRESETS)
+
+    def _label(code: str) -> str:
+        if code == auto:
+            return "Automatic — the chart picks a style that suits your data"
+        if code == "custom":
+            return "Custom… (type your own code)"
+        labels = ux.date_label_preview(code, dates).labels
+        return f"**{labels[0]} … {labels[-1]}**  ·  {names[code]}  `{code}`"
+
+    choice = st.radio(
+        "Date style",
+        [auto, *presets, "custom"],
+        key=state_key,
+        format_func=_label,
+        help="Pick the style that reads the way you want. The result is drawn from your own dates.",
+    )
+    if choice == auto:
+        a.x_date_format = None
+        return
+    if choice == "custom":
+        code = st.text_input(
+            "Your date code",
+            value=current if current and current not in presets else "%b %Y",
+            key="axes.x_date_format",
+            help="Codes: %Y 2024 · %y 24 · %b Jan · %B January · %m 01 · %d 05",
+        )
+    else:
+        code = choice
+    preview = ux.date_label_preview(code, dates)
+    if preview.problem:
+        st.warning(preview.problem, icon=":material/info:")
+    if preview.labels:
+        _axis_strip(preview.labels)
+        a.x_date_format = code
+    else:
+        a.x_date_format = None
+
+
+def _value_format_picker(a: Any, sample: float) -> None:
+    """Pick the number style by what it prints for the largest value."""
+    r = lambda style, x=sample, **kw: ux.format_value(style, x, **kw)  # noqa: E731
+    dec = int(a.y_formatter_decimals)
+    labels = {
+        "compact": f"**{r('compact')}**  ·  Compact",
+        "plain": f"**{r('plain')}**  ·  Plain",
+        "percent": "**10%**  ·  Percent (0.1 becomes 10%)",
+        "norm_max": (
+            f"**{r('norm_max', sample / 2, decimals=dec, max_value=sample)}**"
+            "  ·  Share of the largest value (half of it shown)"
+        ),
+        "custom": "Custom… (type your own format)",
+    }
+    st.caption(f"Previews use your largest value, {sample:,.0f}.")
+    a.y_formatter = st.radio(
+        "Number style",
+        list(Y_FORMATTERS),
+        index=list(Y_FORMATTERS).index(a.y_formatter) if a.y_formatter in Y_FORMATTERS else 0,
+        key="axes.y_formatter",
+        format_func=lambda k: labels.get(k, k),
     )
     if a.y_formatter == "norm_max":
         a.y_formatter_decimals = int(
@@ -892,11 +949,92 @@ def axes_tab(spec: ChartSpec) -> None:
         )
     if a.y_formatter == "custom":
         a.y_formatter_custom = st.text_input(
-            "Format string",
+            "Your number format",
             a.y_formatter_custom,
             key="axes.y_custom",
-            help="Python format, e.g. {x:,.1f}",
+            help="Python format. {x:,.0f} gives 298,835 · {x:,.1f} gives 298,835.0",
         )
+        problem = ux.value_style_problem(a.y_formatter_custom)
+        if problem:
+            st.warning(problem, icon=":material/info:")
+        else:
+            st.caption(
+                "Result: "
+                + "  ·  ".join(
+                    ux.format_value("custom", v, custom=a.y_formatter_custom) or ""
+                    for v in (sample, sample / 20, sample / 60)
+                )
+            )
+
+
+def axes_tab(spec: ChartSpec, df: Optional[pd.DataFrame] = None) -> None:
+    a, ctype = spec.style.axes, spec.chart.type
+    if ctype == "bump":
+        st.caption("Bump charts place their own rank axis; these settings don't apply.")
+    _group("X-axis labels")
+    if ctype in ("bar", "line"):
+        _date_format_picker(a, df, spec.chart.x_col)
+    c1, c2 = st.columns(2)
+    with c1:
+        a.x_tick_step = _opt_number(
+            "Label every…",
+            a.x_tick_step,
+            "axes.x_tick_step",
+            help="Gap between x labels in x units (2 = every second year). Blank = automatic.",
+        )
+        a.x_minor_ticks = _opt_number(
+            "Small ticks between labels",
+            a.x_minor_ticks,
+            "axes.x_minor_ticks",
+            integer=True,
+            min_value=0,
+            help="1 puts a single small tick halfway between labels. Blank = none.",
+        )
+    with c2:
+        a.max_x_ticks = _opt_number(
+            "Most labels to show",
+            a.max_x_ticks,
+            "axes.max_x_ticks",
+            integer=True,
+            min_value=1,
+            help="Caps how many x labels are drawn. Blank = automatic.",
+        )
+        a.x_year_tick_interval = _opt_number(
+            "Label every… years (line)",
+            a.x_year_tick_interval,
+            "axes.x_year_tick_interval",
+            integer=True,
+            min_value=1,
+            help="For line charts with dates: one label every N years. Blank = automatic.",
+        )
+    a.auto_x_thinning = st.toggle(
+        "Skip labels when they get crowded",
+        a.auto_x_thinning,
+        key="axes.auto_x_thinning",
+        help="Drops some x labels when they would overlap, instead of squeezing them.",
+    )
+    a.xlim = _range("X", a.xlim, "axes.xlim")
+    _group("Y-axis")
+    c1, c2 = st.columns(2)
+    with c1:
+        a.y_tick_step = _opt_number(
+            "Gridline every…",
+            a.y_tick_step,
+            "axes.y_tick_step",
+            help="Gap between horizontal gridlines, in value units. Blank = automatic.",
+        )
+    with c2:
+        a.max_y_ticks = _opt_number(
+            "Most gridlines",
+            a.max_y_ticks,
+            "axes.max_y_ticks",
+            integer=True,
+            min_value=1,
+            help="Caps how many y labels are drawn. Blank = automatic.",
+        )
+    a.ylim = _range("Y", a.ylim, "axes.ylim")
+    _group("Value labels")
+    _value_format_picker(a, _y_sample(spec, df))
 
 
 def colors_tab(spec: ChartSpec, df: Optional[pd.DataFrame]) -> None:
@@ -1014,7 +1152,16 @@ def _load_sample() -> None:
     """Open the bundled arrivals sample as a finished line chart."""
     ss = st.session_state
     for k in list(ss.keys()):
-        if isinstance(k, str) and k.split(".")[0] in ("chart", "text", "step", "source"):
+        if isinstance(k, str) and k.split(".")[0] in (
+            "chart",
+            "text",
+            "step",
+            "source",
+            "axes",
+            "layout",
+            "colors",
+            "style",
+        ):
             del ss[k]
     ss.pop("chart_cols", None)
     ss.raw_df = pd.read_csv(SAMPLE_CSV)
@@ -1085,6 +1232,16 @@ _CSS = """
 .st-key-canvas img { border-radius: 6px; box-shadow: 0 4px 18px rgba(0, 0, 0, .18); }
 .ec-stat { text-align: center; font-size: .75rem; opacity: .6;
   font-variant-numeric: tabular-nums; }
+.ec-strip { border: 1px dashed var(--ec-rule); border-radius: 9px; padding: .45rem .7rem .15rem;
+  margin: .25rem 0 .5rem; }
+.ec-strip > span { font-size: .68rem; letter-spacing: .07em; text-transform: uppercase;
+  opacity: .6; }
+.ec-axis { position: relative; height: 2.1rem; margin: .5rem 1.1rem 0;
+  border-bottom: 2px solid currentColor; }
+.ec-axis i { position: absolute; bottom: -6px; width: 1px; height: 6px;
+  background: currentColor; }
+.ec-axis em { position: absolute; top: 1.15rem; transform: translateX(-50%); font-style: normal;
+  font-size: .68rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ec-empty { display: grid; gap: .25rem; text-align: center; max-width: 30ch; margin: 0 auto; }
 .ec-empty span { opacity: .65; font-size: .9rem; }
 @media (min-width: 641px) {

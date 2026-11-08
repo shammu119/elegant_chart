@@ -108,3 +108,53 @@ def test_bump_controls_update_spec():
     assert not at.error, [e.value for e in at.error]
     assert at.session_state.spec.chart.other_alpha == 0.25
     assert len(at.get("image")) == 1
+
+
+def _sample_on_axes_tab():
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    at.button(key="sample").click()
+    at.run()
+    at.session_state["inspector.section"] = "Axes"
+    at.run()
+    assert not at.exception, at.exception
+    return at
+
+
+def test_axes_date_preset_sets_format_and_warns_on_yearly_data():
+    at = _sample_on_axes_tab()
+    at.radio(key="axes.x_date_style").set_value("%b %Y")
+    at.run()
+    assert not at.exception, at.exception
+    assert at.session_state.spec.style.axes.x_date_format == "%b %Y"
+    assert any("yearly" in w.value for w in at.warning)
+
+
+def test_axes_bad_custom_date_code_shows_message_not_error():
+    at = _sample_on_axes_tab()
+    at.radio(key="axes.x_date_style").set_value("custom")
+    at.run()
+    at.text_input(key="axes.x_date_format").set_value("%q")
+    at.run()
+    assert not at.exception, at.exception
+    assert at.session_state.spec.style.axes.x_date_format is None
+    assert any("%q" in w.value for w in at.warning)
+
+
+def test_axes_bad_custom_number_format_shows_message_not_error():
+    at = _sample_on_axes_tab()
+    at.radio(key="axes.y_formatter").set_value("custom")
+    at.run()
+    at.text_input(key="axes.y_custom").set_value("{x")
+    at.run()
+    assert not at.exception, at.exception
+    assert any("Can't read" in w.value for w in at.warning)
+
+
+def test_axes_tab_hides_date_style_for_category_x():
+    at = _app_with_data()
+    at.run()
+    at.session_state["inspector.section"] = "Axes"
+    at.run()
+    assert not at.exception, at.exception
+    assert "axes.x_date_style" not in at.session_state
