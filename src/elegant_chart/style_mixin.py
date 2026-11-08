@@ -10,7 +10,6 @@ from matplotlib import font_manager
 
 from ._paths import BUNDLED_FONT_FILES, FONTS_DIR
 
-
 # Base font sizes in points, authored at REFERENCE_FIGSIZE; scaled via _ts()/_fs().
 TYPE_SCALE = {
     "title": 18,  # spec 16-18pt (kept at top of range)

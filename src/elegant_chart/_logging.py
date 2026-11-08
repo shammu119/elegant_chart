@@ -32,7 +32,5 @@ def enable_logging(level: int = logging.INFO) -> None:
     # Avoid stacking duplicate handlers if called more than once.
     if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
         handler = logging.StreamHandler()
-        handler.setFormatter(
-            logging.Formatter("[%(name)s] %(levelname)s: %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("[%(name)s] %(levelname)s: %(message)s"))
         logger.addHandler(handler)

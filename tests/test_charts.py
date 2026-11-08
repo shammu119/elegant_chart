@@ -6,19 +6,18 @@ Uses the Agg (non-interactive) backend so tests run without a display.
 All chart calls use show=False so plt.show() is never triggered.
 """
 
-import os
-import pytest
 import matplotlib
+import pytest
 
 matplotlib.use("Agg")  # must be set before importing pyplot
+
+from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from datetime import datetime
 
 from elegant_chart import ElegantChart
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -41,7 +40,7 @@ THEMES = ["consulting_light", "newsroom_muted", "consulting_dark", "newsroom_dar
 
 
 def test_import():
-    from elegant_chart import ElegantChart, ChartBase, XPlan, YFormatter
+    from elegant_chart import ElegantChart
 
     assert ElegantChart is not None
 
@@ -473,7 +472,6 @@ def test_line_value_labels_on():
 def test_auto_bar_width_categorical_sparse():
     """Sparse categorical data should produce narrower bars than dense data."""
     from elegant_chart.data_mixin import DataMixin, XPlan
-    import numpy as np
 
     dm = DataMixin()
     plan_sparse = XPlan(True, False, False, np.arange(3, dtype=float), False, None)
@@ -484,7 +482,6 @@ def test_auto_bar_width_categorical_sparse():
 def test_auto_bar_width_datetime_scales_with_gap():
     """Datetime positions: width should be proportional to the minimum gap."""
     from elegant_chart.data_mixin import DataMixin, XPlan
-    import numpy as np
 
     dm = DataMixin()
     # Tight series: gap=1

@@ -62,13 +62,24 @@ class BarMixin(DataMixin):
         """Create a bar chart with categorical, numeric, or datetime x values."""
 
         x, series_list, x_plan, active_xlim = self._prepare_render(
-            "bar", x, ys, labels, df, x_col, y_cols,
-            xlim, x_minor_ticks, x_upper_pad, align_x_edges,
+            "bar",
+            x,
+            ys,
+            labels,
+            df,
+            x_col,
+            y_cols,
+            xlim,
+            x_minor_ticks,
+            x_upper_pad,
+            align_x_edges,
         )
 
         if horizontal:
             return self._render_horizontal_bar(
-                x, series_list, x_plan,
+                x,
+                series_list,
+                x_plan,
                 bar_width=bar_width,
                 show_value_labels=show_value_labels,
                 max_label_width=max_label_width,
@@ -86,7 +97,9 @@ class BarMixin(DataMixin):
                 **save_kwargs,
             )
 
-        effective_bar_width = bar_width if bar_width is not None else self._auto_bar_width(x_plan, len(x))
+        effective_bar_width = (
+            bar_width if bar_width is not None else self._auto_bar_width(x_plan, len(x))
+        )
         # Edge bars extend half a bar-width beyond the first/last data
         # position; widen the x-limits (in _apply_x_upper_padding) so they
         # aren't clipped against the axes boundary.
@@ -110,7 +123,9 @@ class BarMixin(DataMixin):
 
             # ── draw bars ─────────────────────────────────────────────────
             n_series = len(series_list)
-            val_fmt = self._build_formatter(y_formatter if y_formatter is not None else self.y_formatter)  # type: ignore[attr-defined]
+            val_fmt = self._build_formatter(
+                y_formatter if y_formatter is not None else self.y_formatter
+            )  # type: ignore[attr-defined]
 
             if stacked or n_series == 1:
                 cumulative = np.zeros(len(base_positions))
@@ -132,8 +147,11 @@ class BarMixin(DataMixin):
                         for pos, v, cum in zip(base_positions, values, cumulative):
                             bar_top = float(v) + float(cum) if stacked else float(v)
                             ax.text(
-                                float(pos), bar_top, val_fmt(float(v), 0),
-                                ha="center", va="bottom",
+                                float(pos),
+                                bar_top,
+                                val_fmt(float(v), 0),
+                                ha="center",
+                                va="bottom",
                                 fontsize=self._ts("value_label"),  # type: ignore[attr-defined]
                                 color=self.color_text_main,  # type: ignore[attr-defined]
                                 zorder=6,
@@ -163,8 +181,11 @@ class BarMixin(DataMixin):
                     if show_value_labels:
                         for pos, v in zip(base_positions, values):
                             ax.text(
-                                float(pos) + offset, float(v), val_fmt(float(v), 0),
-                                ha="center", va="bottom",
+                                float(pos) + offset,
+                                float(v),
+                                val_fmt(float(v), 0),
+                                ha="center",
+                                va="bottom",
                                 fontsize=self._ts("value_label"),  # type: ignore[attr-defined]
                                 color=self.color_text_main,  # type: ignore[attr-defined]
                                 zorder=6,
@@ -181,13 +202,20 @@ class BarMixin(DataMixin):
                     max(np.asarray(values, dtype=float).max() for _, values in series_list)
                 )
             self._apply_axis_limits(  # type: ignore[attr-defined]
-                ax, xlim, ylim, data_y_min=0.0, data_y_max=data_y_max, chart_type="bar",
+                ax,
+                xlim,
+                ylim,
+                data_y_min=0.0,
+                data_y_max=data_y_max,
+                chart_type="bar",
                 has_top_label=show_value_labels,
             )
 
             # ── x axis ────────────────────────────────────────────────────
             self._dispatch_x_axis(
-                ax, x, x_plan,
+                ax,
+                x,
+                x_plan,
                 rotation=rotation,
                 compact_years=compact_years,
                 x_tick_step=x_tick_step,
@@ -208,7 +236,14 @@ class BarMixin(DataMixin):
                 y_formatter=y_formatter,
             )
             ax.tick_params(axis="y", which="both", length=0, pad=0)
-            ax.tick_params(axis="x", which="major", direction="out", pad=self._px(3), length=self._px(5), width=self._px(0.5))
+            ax.tick_params(
+                axis="x",
+                which="major",
+                direction="out",
+                pad=self._px(3),
+                length=self._px(5),
+                width=self._px(0.5),
+            )
             ax.margins(x=0)
             if not self._x_xlim_explicit:  # type: ignore[attr-defined]
                 _xlo, _xhi = self._x_data_bounds  # type: ignore[attr-defined]
@@ -221,7 +256,8 @@ class BarMixin(DataMixin):
             # ── finalize + output ─────────────────────────────────────────
             has_legend = self._should_show_legend(series_list)
             self._finalize_and_output(
-                fig, ax,
+                fig,
+                ax,
                 rotation=rotation,
                 has_legend=has_legend,
                 save_path=save_path,
@@ -269,10 +305,14 @@ class BarMixin(DataMixin):
         doubles as the value-axis range, mirroring how it bounds the value
         axis for vertical bars.
         """
-        effective_bar_width = bar_width if bar_width is not None else self._auto_bar_width(x_plan, len(x))
+        effective_bar_width = (
+            bar_width if bar_width is not None else self._auto_bar_width(x_plan, len(x))
+        )
         base_positions = x_plan.positions
         n_series = len(series_list)
-        val_fmt = self._build_formatter(y_formatter if y_formatter is not None else self.y_formatter)  # type: ignore[attr-defined]
+        val_fmt = self._build_formatter(
+            y_formatter if y_formatter is not None else self.y_formatter
+        )  # type: ignore[attr-defined]
         icon_size_pt = self._ts("tick_label") * 1.6  # type: ignore[attr-defined]
         gap_pt = self._px(3)  # type: ignore[attr-defined]
         logo_pad_pt = (icon_size_pt + gap_pt) if y_tick_logos else 0.0
@@ -290,9 +330,14 @@ class BarMixin(DataMixin):
                 color = self._series_color(idx, lbl)  # type: ignore[attr-defined]
                 alpha = (alpha_map or {}).get(lbl) if lbl is not None else None
                 ax.barh(
-                    base_positions + offset, values,
+                    base_positions + offset,
+                    values,
                     height=single_width,
-                    label=lbl, color=color, alpha=alpha, zorder=2, align="center",
+                    label=lbl,
+                    color=color,
+                    alpha=alpha,
+                    zorder=2,
+                    align="center",
                 )
                 if show_value_labels:
                     for pos, v in zip(base_positions, values):
@@ -301,7 +346,8 @@ class BarMixin(DataMixin):
                             xy=(float(v), float(pos) + offset),
                             xytext=(self._px(3), 0),  # type: ignore[attr-defined]
                             textcoords="offset points",
-                            ha="left", va="center",
+                            ha="left",
+                            va="center",
                             fontsize=self._ts("value_label"),  # type: ignore[attr-defined]
                             color=self.color_text_main,  # type: ignore[attr-defined]
                             zorder=6,
@@ -329,7 +375,9 @@ class BarMixin(DataMixin):
                 for lbl in x
             ]
             ax.set_yticks(base_positions)
-            ax.set_yticklabels(category_labels, fontsize=self._ts("tick_label"), color=self.color_tick)  # type: ignore[attr-defined]
+            ax.set_yticklabels(
+                category_labels, fontsize=self._ts("tick_label"), color=self.color_tick
+            )  # type: ignore[attr-defined]
             ax.tick_params(axis="y", which="both", length=0, pad=self._px(6) + logo_pad_pt)  # type: ignore[attr-defined]
             ax.set_ylim(base_positions.max() + 0.5, base_positions.min() - 0.5)  # first item on top
 
@@ -349,33 +397,57 @@ class BarMixin(DataMixin):
             axes_height = 0.7116 - 0.1266
             if self.title:  # type: ignore[attr-defined]
                 fig.text(
-                    0.04, 0.1266 + 1.234 * axes_height, self.title,  # type: ignore[attr-defined]
+                    0.04,
+                    0.1266 + 1.234 * axes_height,
+                    self.title,  # type: ignore[attr-defined]
                     fontsize=self._ts("title"),  # type: ignore[attr-defined]
-                    va="bottom", ha="left", color=self.color_title,  # type: ignore[attr-defined]
-                    fontfamily=self.font_title_family, fontweight=self.font_title_weight,  # type: ignore[attr-defined]
-                    linespacing=LINESPACING, clip_on=False,
+                    va="bottom",
+                    ha="left",
+                    color=self.color_title,  # type: ignore[attr-defined]
+                    fontfamily=self.font_title_family,
+                    fontweight=self.font_title_weight,  # type: ignore[attr-defined]
+                    linespacing=LINESPACING,
+                    clip_on=False,
                 )
             if self.subtitle:  # type: ignore[attr-defined]
                 fig.text(
-                    0.04, 0.1266 + 1.220 * axes_height, self.subtitle,  # type: ignore[attr-defined]
+                    0.04,
+                    0.1266 + 1.220 * axes_height,
+                    self.subtitle,  # type: ignore[attr-defined]
                     fontsize=self._ts("subtitle"),  # type: ignore[attr-defined]
-                    va="top", ha="left", color=self.color_subtitle,  # type: ignore[attr-defined]
-                    fontfamily=self.font_main_family, linespacing=LINESPACING, clip_on=False,  # type: ignore[attr-defined]
+                    va="top",
+                    ha="left",
+                    color=self.color_subtitle,  # type: ignore[attr-defined]
+                    fontfamily=self.font_main_family,
+                    linespacing=LINESPACING,
+                    clip_on=False,  # type: ignore[attr-defined]
                 )
             if self.xlabel:  # type: ignore[attr-defined]
-                ax.set_xlabel(self.xlabel, color=self.color_axes_label, fontsize=self._ts("axis_label"))  # type: ignore[attr-defined]
+                ax.set_xlabel(
+                    self.xlabel, color=self.color_axes_label, fontsize=self._ts("axis_label")
+                )  # type: ignore[attr-defined]
             if self.ylabel:  # type: ignore[attr-defined]
-                ax.set_ylabel(self.ylabel, color=self.color_axes_label, fontsize=self._ts("axis_label"))  # type: ignore[attr-defined]
+                ax.set_ylabel(
+                    self.ylabel, color=self.color_axes_label, fontsize=self._ts("axis_label")
+                )  # type: ignore[attr-defined]
 
             has_legend = self._should_show_legend(series_list)
             if has_legend:
                 handles, lbls = ax.get_legend_handles_labels()
                 ncol = max(1, min(self.legend_ncol or 3, len(lbls)))  # type: ignore[attr-defined]
                 ax.legend(
-                    handles, lbls, loc="upper left", bbox_to_anchor=(0.0, 1.15),
-                    ncol=ncol, frameon=False, fontsize=self._ts("legend"),  # type: ignore[attr-defined]
-                    handlelength=self._px(1.4), handletextpad=self._px(0.4),  # type: ignore[attr-defined]
-                    columnspacing=self._px(1.0), labelspacing=0.1, borderaxespad=0.0,  # type: ignore[attr-defined]
+                    handles,
+                    lbls,
+                    loc="upper left",
+                    bbox_to_anchor=(0.0, 1.15),
+                    ncol=ncol,
+                    frameon=False,
+                    fontsize=self._ts("legend"),  # type: ignore[attr-defined]
+                    handlelength=self._px(1.4),
+                    handletextpad=self._px(0.4),  # type: ignore[attr-defined]
+                    columnspacing=self._px(1.0),
+                    labelspacing=0.1,
+                    borderaxespad=0.0,  # type: ignore[attr-defined]
                 )
 
             plt.subplots_adjust(left=0.04, right=0.97, top=0.7116, bottom=0.1266)
@@ -399,6 +471,7 @@ class BarMixin(DataMixin):
                 logger.info("Saved chart -> %s", save_path)
                 if export_xlsx:
                     import os  # noqa: PLC0415
+
                     target = export_xlsx_path or os.path.join(
                         os.path.dirname(str(save_path)) or ".", "chart_data.xlsx"
                     )

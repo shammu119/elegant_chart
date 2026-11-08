@@ -75,11 +75,11 @@ def _series_cache_path(series_id: int, cache_dir: Optional[Union[str, Path]] = N
 
 def _load_cached_series_df(path: Path) -> pd.DataFrame:
     try:
-        import openpyxl  # noqa: PLC0415 — optional dependency, imported lazily
+        import openpyxl  # noqa: F401, PLC0415 — optional dependency, imported lazily
     except ImportError as exc:
         raise ImportError(
             "openpyxl is required to read cached Excel data. "
-            "Install it with: pip install \"elegant_chart[data]\""
+            'Install it with: pip install "elegant_chart[data]"'
         ) from exc
 
     return pd.read_excel(path, engine="openpyxl")
@@ -88,11 +88,11 @@ def _load_cached_series_df(path: Path) -> pd.DataFrame:
 def _save_cached_series_df(path: Path, df: pd.DataFrame) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        import openpyxl  # noqa: PLC0415 — optional dependency, imported lazily
+        import openpyxl  # noqa: F401, PLC0415 — optional dependency, imported lazily
     except ImportError as exc:
         raise ImportError(
             "openpyxl is required to cache API data as Excel. "
-            "Install it with: pip install \"elegant_chart[data]\""
+            'Install it with: pip install "elegant_chart[data]"'
         ) from exc
 
     df.to_excel(path, index=False, engine="openpyxl")
@@ -136,7 +136,7 @@ def get_series_df(
     except ImportError as exc:
         raise ImportError(
             "The 'requests' package is required to use get_series_df. "
-            "Install it with: pip install \"elegant_chart[data]\""
+            'Install it with: pip install "elegant_chart[data]"'
         ) from exc
 
     token = _load_token()

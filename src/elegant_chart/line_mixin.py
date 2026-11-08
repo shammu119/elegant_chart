@@ -55,8 +55,17 @@ class LineMixin(DataMixin):
         """Create a line chart with categorical, numeric, or datetime x values."""
 
         x, series_list, x_plan, active_xlim = self._prepare_render(
-            "line", x, ys, labels, df, x_col, y_cols,
-            xlim, x_minor_ticks, x_upper_pad, align_x_edges,
+            "line",
+            x,
+            ys,
+            labels,
+            df,
+            x_col,
+            y_cols,
+            xlim,
+            x_minor_ticks,
+            x_upper_pad,
+            align_x_edges,
         )
 
         # Resolve linewidth: None → auto-scale from reference; explicit float → honour as-is.
@@ -128,7 +137,12 @@ class LineMixin(DataMixin):
             data_y_min = float(min(all_values))
             data_y_max = float(max(all_values))
             self._apply_axis_limits(  # type: ignore[attr-defined]
-                ax, xlim, ylim, data_y_min=data_y_min, data_y_max=data_y_max, chart_type="line",
+                ax,
+                xlim,
+                ylim,
+                data_y_min=data_y_min,
+                data_y_max=data_y_max,
+                chart_type="line",
                 has_top_label=show_value_labels,
             )
             self._apply_y_axis(  # type: ignore[attr-defined]
@@ -140,7 +154,12 @@ class LineMixin(DataMixin):
 
             ax.tick_params(axis="y", which="both", length=0, pad=0)
             ax.tick_params(
-                axis="x", which="major", direction="out", pad=self._px(3), length=self._px(5), width=self._px(0.5)
+                axis="x",
+                which="major",
+                direction="out",
+                pad=self._px(3),
+                length=self._px(5),
+                width=self._px(0.5),
             )
             ax.margins(x=0)
 
@@ -149,7 +168,9 @@ class LineMixin(DataMixin):
 
             # ── x axis ────────────────────────────────────────────────────
             self._dispatch_x_axis(
-                ax, x, x_plan,
+                ax,
+                x,
+                x_plan,
                 rotation=rotation,
                 compact_years=compact_years,
                 x_tick_step=x_tick_step,

@@ -46,9 +46,7 @@ class AxisMixin:
         out = fmt.format(value)
         return out.rstrip("0").rstrip(".")
 
-    def _build_formatter(
-        self, spec: FormatterSpec, default: str = "compact"
-    ) -> FuncFormatter:
+    def _build_formatter(self, spec: FormatterSpec, default: str = "compact") -> FuncFormatter:
         if spec is None:
             spec = default
 
@@ -121,9 +119,7 @@ class AxisMixin:
         tick_padding: Optional[float] = None,
     ) -> None:
         formatted = [
-            self._format_tick_label_width(
-                lbl, max_width=max_label_width, strategy=width_strategy
-            )
+            self._format_tick_label_width(lbl, max_width=max_label_width, strategy=width_strategy)
             for lbl in labels
         ]
 
@@ -335,17 +331,18 @@ class AxisMixin:
             ax.locator_params(axis="x", nbins=max_x_ticks)
 
         if x_formatter is not None:
-            ax.xaxis.set_major_formatter(
-                self._build_formatter(x_formatter, default="plain")
-            )
+            ax.xaxis.set_major_formatter(self._build_formatter(x_formatter, default="plain"))
 
         if minor_ticks:
             # AutoMinorLocator(n) places (n-1) evenly-spaced minor ticks between
             # each pair of major ticks, so minor_ticks=1 gives a single midpoint tick.
             ax.xaxis.set_minor_locator(AutoMinorLocator(minor_ticks + 1))
             ax.tick_params(
-                axis="x", which="minor", direction="out",
-                length=self._px(2.5), width=self._px(0.4),  # type: ignore[attr-defined]
+                axis="x",
+                which="minor",
+                direction="out",
+                length=self._px(2.5),
+                width=self._px(0.4),  # type: ignore[attr-defined]
                 colors=self.color_subtitle,  # type: ignore[attr-defined]
             )
 
@@ -383,10 +380,7 @@ class AxisMixin:
             # floats — convert. Note tick_values() already returns its
             # result in date2num scale, so no further conversion is needed.
             dmin, dmax = mdates.num2date(lo), mdates.num2date(hi)
-            interior = [
-                t for t in auto_locator.tick_values(dmin, dmax)
-                if lo < t < hi
-            ]
+            interior = [t for t in auto_locator.tick_values(dmin, dmax) if lo < t < hi]
 
             if pin_endpoints:
                 # Take the auto cadence's interior ticks, drop any that crowd
@@ -396,8 +390,7 @@ class AxisMixin:
                 if span > 0:
                     edge_margin = span * 0.04
                     interior = [
-                        t for t in interior
-                        if (t - lo) > edge_margin and (hi - t) > edge_margin
+                        t for t in interior if (t - lo) > edge_margin and (hi - t) > edge_margin
                     ]
                 majors = sorted({lo, *interior, hi})
                 ax.xaxis.set_major_locator(FixedLocator(majors))
@@ -417,8 +410,11 @@ class AxisMixin:
                 minors.extend(a + step * i for i in range(1, minor_ticks + 1))
             ax.xaxis.set_minor_locator(FixedLocator(minors))
             ax.tick_params(
-                axis="x", which="minor", direction="out",
-                length=self._px(2.5), width=self._px(0.4),  # type: ignore[attr-defined]
+                axis="x",
+                which="minor",
+                direction="out",
+                length=self._px(2.5),
+                width=self._px(0.4),  # type: ignore[attr-defined]
                 colors=self.color_subtitle,  # type: ignore[attr-defined]
             )
 
@@ -454,8 +450,7 @@ class AxisMixin:
         else:
             first_round = ((start_year // year_interval) + 1) * year_interval
             interior_years = [
-                y for y in range(first_round, end_year, year_interval)
-                if start_year < y < end_year
+                y for y in range(first_round, end_year, year_interval) if start_year < y < end_year
             ]
             major_years = [start_year, *interior_years, end_year]
 
@@ -476,15 +471,18 @@ class AxisMixin:
         ax.tick_params(axis="x", labelrotation=0)
 
         minor_ticks = [
-            pos for year in range(start_year + 1, end_year)
-            if lo < (pos := mdates.date2num(datetime(year, 1, 1))) < hi
-            and pos not in major_ticks
+            pos
+            for year in range(start_year + 1, end_year)
+            if lo < (pos := mdates.date2num(datetime(year, 1, 1))) < hi and pos not in major_ticks
         ]
         if minor_ticks:
             ax.xaxis.set_minor_locator(FixedLocator(minor_ticks))
             ax.tick_params(
-                axis="x", which="minor", direction="out",
-                length=self._px(2.5), width=self._px(0.4),  # type: ignore[attr-defined]
+                axis="x",
+                which="minor",
+                direction="out",
+                length=self._px(2.5),
+                width=self._px(0.4),  # type: ignore[attr-defined]
                 colors=self.color_subtitle,  # type: ignore[attr-defined]
             )
 
@@ -539,10 +537,7 @@ class AxisMixin:
         span = abs(xlim[1] - xlim[0])
         edge_margin = span * 0.04 if span > 0 else 0
         majors = ax.xaxis.get_majorticklocs()
-        bounds = [
-            x for x in bounds
-            if not any(0 < abs(x - m) <= edge_margin for m in majors)
-        ]
+        bounds = [x for x in bounds if not any(0 < abs(x - m) <= edge_margin for m in majors)]
 
         ymin, ymax = ax.get_ylim()
         if ymin < 0 < ymax:
