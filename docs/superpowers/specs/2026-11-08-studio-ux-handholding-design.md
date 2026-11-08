@@ -49,6 +49,37 @@ user's own data.
 6. A full audit of the Layout, Colors and Legend tabs finalises the list;
    findings are reported before implementation.
 
+## Audit findings (whole app)
+Preview-first (show the result before the user commits):
+- X date format (text) → presets + live preview from the data's dates.
+- Value format "Custom" (`{x:,.0f}`) → presets + preview from a sample value.
+- Annotations table: x/y/dx/dy typed blind → click-to-pick x from the data,
+  show where it lands; explain dx/dy as "move text right/up (pt)".
+- Label text dialog (`\n`) → real multi-line input, preview of the label.
+- Logo matching "by file name" → show match status per label.
+- Colors: role names (primary…) and hex → swatches of the actual theme colors.
+- Theme → mini swatch strip per theme.
+- Chart type → tiny icons/thumbnails, not just names.
+
+Plain language / explain-in-place:
+- Axes: "X tick step", "Max x ticks", "X minor ticks per interval",
+  "Year tick interval (line)", "Auto-thin crowded x labels" → one "X axis
+  labels" group with plain wording and "auto → …" shown.
+- Layout: "X upper pad (fraction of data span)", "X tick label pad (pt)",
+  "Max label width (chars)", "Long labels", "Y tick labels inside the plot",
+  "Show y spine" → plain names + a line saying what changes.
+- Pipeline steps: "Op", "N", "Index (x)", "Columns (series)", "Aggregate" →
+  plain wording; each step type gets a one-line example.
+- Series ID (MMA) is a bare number → show the series name after fetching.
+- Pipeline "Result" is a table only → say what the chart will use.
+
+Guidance / flow:
+- Sidebar checklist (see Design 4); empty states; errors say how to fix.
+- Disabled/irrelevant controls are hidden per chart type (already done) →
+  add a "why hidden" note where it is not obvious (e.g. bump axes).
+- Export: disabled button doesn't say why; no filename control.
+- Settings reset: no per-section "reset to auto" button.
+
 ## Constraints
 - Streamlit only; keep `ChartSpec` serialisable and unchanged.
 - Tests (`tests/test_studio_app.py`) must pass; add tests for the preview
