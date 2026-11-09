@@ -58,3 +58,4 @@ The Streamlit app (`src/elegant_chart/app/studio.py`) is for one person but must
 - **Guided flow**: a sidebar checklist (Data → Chart → Titles → Look → Export) names the next step; empty states and errors say how to fix the problem.
 - **Pure helpers**: logic behind previews and the checklist lives in `app/ux.py` with no Streamlit import, so it is unit-tested (`tests/test_ux.py`); app behaviour is covered with `AppTest` in `tests/test_studio_app.py`.
 - **Docs follow the UI**: when labels or sections change, update `docs/guides/` and the screenshots in `docs/guides/images/` (a Stop hook in `.claude/hooks/docs_check.py` reminds after major `src/` changes).
+- **One render at a time**: matplotlib's style settings are process-wide, so two charts drawn at once can borrow each other's theme (a dark figure with a light plot area). `render()` and `render_png_bytes()` hold `render.RENDER_LOCK`; any new code that draws and saves a figure should go through them.

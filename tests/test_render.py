@@ -175,3 +175,43 @@ def test_bump_ghost_and_label_options_are_passed_through(wide):
     assert kw["hero_linewidth"] == 3.0 and kw["other_linewidth"] == 0.5
     assert kw["label_display"] == {"EK": "Emirates\nAirline"}
     render(spec, wide).close()
+
+
+def test_concurrent_renders_do_not_mix_themes():
+    """Two charts drawn at once must each keep their own theme (rcParams are global)."""
+    import io
+    import threading
+
+    import pandas as pd
+    from PIL import Image
+
+    from elegant_chart.render import render_png_bytes
+    from elegant_chart.spec import ChartSpec
+
+    df = pd.DataFrame({"Year": pd.date_range("2012-01-01", periods=13, freq="YS"), "A": range(13)})
+    results: list[tuple[str, tuple, tuple]] = []
+
+    def work(theme: str) -> None:
+        spec = ChartSpec()
+        spec.chart.type, spec.chart.x_col, spec.chart.y_cols = "bar", "Year", ["A"]
+        spec.style.colors.theme = theme
+        spec.style.text.title = "Inflation"
+        barrier.wait()
+        for _ in range(12):
+            im = Image.open(io.BytesIO(render_png_bytes(spec, df, 60))).convert("RGB")
+            w, h = im.size
+            results.append((theme, im.getpixel((3, 3)), im.getpixel((w // 2, int(h * 0.45)))))
+
+    themes = ("newsroom_dark", "newsroom_muted", "consulting_light")
+    barrier = threading.Barrier(len(themes))
+    threads = [threading.Thread(target=work, args=(t,)) for t in themes]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    expect = {
+        "newsroom_dark": (11, 16, 20),
+        "newsroom_muted": (250, 250, 250),
+        "consulting_light": (255, 255, 255),
+    }
+    assert len(results) == 36
+    for theme, corner, middle in results:
+        assert corner == expect[theme] == middle, (theme, corner, middle)

@@ -37,11 +37,12 @@ from elegant_chart.pipeline import apply_step  # noqa: E402
 from elegant_chart.pipeline import apply_steps as run_pipeline  # noqa: E402
 from elegant_chart.render import (  # noqa: E402
     EXPORT_DPI,
+    RENDER_LOCK,
     SpecError,
     chart_data_xlsx_bytes,
     default_x_col,
-    figure_png_bytes,
     render,
+    render_png_bytes,
     resolve_columns,
 )
 from elegant_chart.spec import (  # noqa: E402
@@ -1280,11 +1281,7 @@ def canvas_panel(df: Optional[pd.DataFrame]) -> None:
         if cached is None:
             t0 = time.perf_counter()
             try:
-                res = render(spec, df)
-                try:
-                    png = figure_png_bytes(res.fig, PREVIEW_DPI)
-                finally:
-                    res.close()
+                png = render_png_bytes(spec, df, PREVIEW_DPI)
                 cached = {"png": png, "error": None, "secs": time.perf_counter() - t0}
             except Exception as exc:  # noqa: BLE001 — errors are shown, never crash the app
                 cached = {"png": None, "error": str(exc) or exc.__class__.__name__, "secs": 0.0}
@@ -1369,19 +1366,16 @@ def _preview_key(spec: ChartSpec, df: pd.DataFrame) -> str:
 
 
 def _export_png(spec: ChartSpec, df: pd.DataFrame) -> bytes:
-    res = render(spec, df)
-    try:
-        return figure_png_bytes(res.fig, EXPORT_DPI)
-    finally:
-        res.close()
+    return render_png_bytes(spec, df, EXPORT_DPI)
 
 
 def _export_xlsx(spec: ChartSpec, df: pd.DataFrame) -> bytes:
-    res = render(spec, df)
-    try:
-        return chart_data_xlsx_bytes(res.chart)
-    finally:
-        res.close()
+    with RENDER_LOCK:
+        res = render(spec, df)
+        try:
+            return chart_data_xlsx_bytes(res.chart)
+        finally:
+            res.close()
 
 
 # ── page ─────────────────────────────────────────────────────────────────────

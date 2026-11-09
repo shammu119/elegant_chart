@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import os
 import tempfile
+import threading
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -28,6 +29,8 @@ from .elegant_chart import ElegantChart
 from .spec import CHART_TYPES, ChartSpec
 
 EXPORT_DPI = 500
+# Matplotlib style state is global; serialise drawing so charts never mix themes.
+RENDER_LOCK = threading.RLock()
 
 
 class SpecError(ValueError):
@@ -254,6 +257,11 @@ def build_call_kwargs(spec: ChartSpec, df: pd.DataFrame) -> tuple[str, dict[str,
 
 def render(spec: ChartSpec, df: pd.DataFrame) -> RenderResult:
     """Draw ``spec`` with ``df`` and return the live figure (caller closes it)."""
+    with RENDER_LOCK:
+        return _render(spec, df)
+
+
+def _render(spec: ChartSpec, df: pd.DataFrame) -> RenderResult:
     method, call_kwargs = build_call_kwargs(spec, df)
     x_col, _ = resolve_columns(spec, df)
     try:
@@ -269,6 +277,21 @@ def render(spec: ChartSpec, df: pd.DataFrame) -> RenderResult:
             plt.close(num)
         raise
     return RenderResult(fig=fig, ax=ax, chart=chart)
+
+
+def render_png_bytes(spec: ChartSpec, df: pd.DataFrame, dpi: int = EXPORT_DPI) -> bytes:
+    """Draw ``spec`` and return its PNG, holding the render lock for the whole job.
+
+    Matplotlib's style settings are process-wide, so two charts drawn at the same
+    time (two browser tabs, or an export click during a redraw) can borrow each
+    other's theme.  Drawing and saving under one lock keeps every image consistent.
+    """
+    with RENDER_LOCK:
+        res = _render(spec, df)
+        try:
+            return figure_png_bytes(res.fig, dpi)
+        finally:
+            res.close()
 
 
 def figure_png_bytes(fig: plt.Figure, dpi: int = EXPORT_DPI) -> bytes:
