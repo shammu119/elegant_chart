@@ -86,3 +86,72 @@ def test_load_mma_info_delegates(monkeypatch):
 
     monkeypatch.setattr(api, "get_series_info", lambda sid: {"name": f"s{sid}"})
     assert sources.load_mma_info("7") == {"name": "s7"}
+
+
+@pytest.mark.parametrize(
+    "values, expected_first",
+    [
+        (["2024-01-31", "2024-02-29"], "2024-01-31"),  # ISO (MMA series)
+        (["2024-01", "2024-02"], "2024-01-01"),  # ISO year-month
+        (["Jan 2024", "Feb 2024"], "2024-01-01"),
+        (["January 2024", "February 2024"], "2024-01-01"),
+        (["Jan-24", "Feb-24"], "2024-01-01"),
+        (["15 Jan 2024", "16 Feb 2024"], "2024-01-15"),
+        (["Jan 15, 2024", "Feb 16, 2024"], "2024-01-15"),
+        (["31/01/2024", "29/02/2024"], "2024-01-31"),  # day-first
+        (["01/31/2024", "02/29/2024"], "2024-01-31"),  # only month-first fits
+        (["01/02/2024", "03/02/2024"], "2024-02-01"),  # ambiguous -> day-first
+        (["2024/01/31", "2024/02/29"], "2024-01-31"),
+    ],
+)
+def test_text_dates_in_common_formats_are_detected(values, expected_first):
+    df = sources.parse_date_columns(pd.DataFrame({"d": values, "v": [1, 2]}))
+    assert pd.api.types.is_datetime64_any_dtype(df["d"])
+    assert df["d"].iloc[0] == pd.Timestamp(expected_first)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        ["2021", "2022"],  # year labels stay categories/numbers
+        ["Jan", "Feb"],  # month names alone are categories
+        ["2021-22", "2022-23"],  # fiscal years
+        ["A1", "B2"],
+        ["Jan 2024", "soon"],  # one stray value -> leave the column alone
+    ],
+)
+def test_non_date_text_is_left_alone(values):
+    df = sources.parse_date_columns(pd.DataFrame({"d": values}))
+    assert df["d"].tolist() == values
+
+
+def test_blank_cells_do_not_block_detection():
+    df = sources.parse_date_columns(pd.DataFrame({"d": ["Jan 2024", None, "Mar 2024"]}))
+    assert pd.api.types.is_datetime64_any_dtype(df["d"])
+    assert df["d"].isna().tolist() == [False, True, False]
+
+
+def test_numeric_columns_are_never_converted():
+    df = sources.parse_date_columns(pd.DataFrame({"Year": [2021, 2022], "v": [1.5, 2.5]}))
+    assert df["Year"].tolist() == [2021, 2022]
+
+
+def test_excel_text_dates_become_datetimes():
+    pytest.importorskip("openpyxl")
+    buf = io.BytesIO()
+    pd.DataFrame({"date": ["2024-01-31", "2024-02-29"], "amount": [1.0, 2.0]}).to_excel(
+        buf, index=False
+    )
+    df = sources.read_uploaded(buf.getvalue(), "book.xlsx")
+    assert pd.api.types.is_datetime64_any_dtype(df["date"])
+
+
+def test_mma_series_dates_become_datetimes(monkeypatch):
+    import elegant_chart.get_api_data as api
+
+    monkeypatch.setattr(
+        api,
+        "get_series_df",
+        lambda sid: pd.DataFrame({"date": ["2010-01-31", "2010-02-28"], "amount": [1.0, 2.0]}),
+    )
+    assert pd.api.types.is_datetime64_any_dtype(sources.load_mma_series(217)["date"])

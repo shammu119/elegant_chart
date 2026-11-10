@@ -184,21 +184,22 @@ def _range(label: str, value: Optional[tuple], key: str) -> Optional[tuple]:
     c1, c2 = st.columns(2)
     lo = c1.number_input(
         f"{label} min",
-        value=None if value is None else float(value[0]),
+        value=None if value is None or value[0] is None else float(value[0]),
         key=f"{key}.lo",
         placeholder="auto",
         format="%g",
     )
     hi = c2.number_input(
         f"{label} max",
-        value=None if value is None else float(value[1]),
+        value=None if value is None or value[1] is None else float(value[1]),
         key=f"{key}.hi",
         placeholder="auto",
         format="%g",
     )
-    if lo is None or hi is None:
+    if lo is None and hi is None:
         return None
-    return (float(lo), float(hi))
+    # One side may stay empty = "auto"; render() fills it from the chart's own range.
+    return (None if lo is None else float(lo), None if hi is None else float(hi))
 
 
 def _save_upload(f: Any) -> str:
@@ -1351,7 +1352,6 @@ def _load_sample() -> None:
     spec.chart.y_cols = ["China", "India", "Russia", "United Kingdom"]
     spec.style.text.title = "Tourist arrivals by\nsource market"
     spec.style.text.subtitle = "Arrivals per year, top four markets"
-    spec.style.text.caption = "Source: Ministry of Tourism"
     ss.spec = spec
     ss.step_ids = [uuid.uuid4().hex[:8]]
     # Point the already-drawn segmented controls at the sample's choices.

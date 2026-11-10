@@ -266,3 +266,21 @@ def test_every_chart_type_renders_all_sections_without_error():
             at.session_state["inspector.section"] = section
             at.run()
             assert not at.exception, (ctype, section, at.exception)
+
+
+def test_one_sided_axis_range_reaches_the_chart():
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    at.button(key="sample").click()
+    at.run()
+    at.segmented_control(key="inspector.section").set_value("Axes")
+    at.run()
+    at.number_input(key="axes.ylim.lo").set_value(0.0)  # Y max left on "auto"
+    at.number_input(key="axes.xlim.hi").set_value(2030.0)  # X min left on "auto"
+    at.run()
+    assert not at.exception, at.exception
+    assert not at.error, [e.value for e in at.error]
+    axes = at.session_state.spec.style.axes
+    assert axes.ylim == (0.0, None)
+    assert axes.xlim == (None, 2030.0)
+    assert len(at.get("image")) == 1

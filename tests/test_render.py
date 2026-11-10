@@ -215,3 +215,79 @@ def test_concurrent_renders_do_not_mix_themes():
     assert len(results) == 36
     for theme, corner, middle in results:
         assert corner == expect[theme] == middle, (theme, corner, middle)
+
+
+# ── half-filled axis ranges (one side "auto") ────────────────────────────────
+
+
+def _limits(spec, df):
+    res = render(spec, df)
+    try:
+        return res.ax.get_xlim(), res.ax.get_ylim()
+    finally:
+        res.close()
+
+
+@pytest.mark.parametrize("ctype", ["bar", "line"])
+def test_only_y_min_set_keeps_auto_max(wide, ctype):
+    auto_x, auto_y = _limits(_spec(ctype), wide)
+    spec = _spec(ctype)
+    spec.style.axes.ylim = (-5.0, None)
+    x, y = _limits(spec, wide)
+    assert y[0] == pytest.approx(-5.0)
+    assert y[1] == pytest.approx(auto_y[1])
+    assert x == pytest.approx(auto_x)  # untouched axis is unchanged
+
+
+@pytest.mark.parametrize("ctype", ["bar", "line"])
+def test_only_y_max_set_keeps_auto_min(wide, ctype):
+    _, auto_y = _limits(_spec(ctype), wide)
+    spec = _spec(ctype)
+    spec.style.axes.ylim = (None, 40.0)
+    _, y = _limits(spec, wide)
+    assert y[0] == pytest.approx(auto_y[0])
+    assert y[1] == pytest.approx(40.0)
+
+
+def test_only_x_max_set_keeps_auto_min(wide):
+    auto_x, _ = _limits(_spec("line"), wide)
+    spec = _spec("line")
+    spec.style.axes.xlim = (None, 2030.0)
+    x, _ = _limits(spec, wide)
+    assert x[0] == pytest.approx(auto_x[0])
+    assert x[1] == pytest.approx(2030.0)
+
+
+def test_hbar_value_axis_half_range(wide):
+    spec = _spec("hbar")
+    spec.style.axes.ylim = (0.0, None)
+    res = render(spec, wide)
+    try:
+        assert res.ax.get_xlim()[0] == pytest.approx(0.0)  # value axis is horizontal
+    finally:
+        res.close()
+
+
+def test_half_range_survives_dict_round_trip(wide):
+    spec = _spec("line")
+    spec.style.axes.ylim = (0.0, None)
+    again = ChartSpec.from_dict(spec.to_dict())
+    assert again.style.axes.ylim == (0.0, None)
+    assert _limits(again, wide)[1][0] == pytest.approx(0.0)
+
+
+def test_half_range_does_not_mutate_the_spec(wide):
+    spec = _spec("line")
+    spec.style.axes.ylim = (0.0, None)
+    render(spec, wide).close()
+    assert spec.style.axes.ylim == (0.0, None)
+
+
+def test_reversed_range_is_a_spec_error(wide):
+    spec = _spec("line")
+    spec.style.axes.ylim = (10.0, 5.0)
+    with pytest.raises(SpecError, match="Y min"):
+        render(spec, wide)
+    spec.style.axes.ylim = (None, -50.0)  # auto min is above the typed max
+    with pytest.raises(SpecError, match="Y min"):
+        render(spec, wide)

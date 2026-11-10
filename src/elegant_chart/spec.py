@@ -81,11 +81,14 @@ class ChartTypeSpec:
     logos: dict[str, str] = field(default_factory=dict)
 
 
+DEFAULT_STUDIO_CAPTION = "Source: \nData Visualized by Hassan Shammu"
+
+
 @dataclass
 class TextSpec:
     title: Optional[str] = None
     subtitle: Optional[str] = None
-    caption: Optional[str] = None
+    caption: Optional[str] = DEFAULT_STUDIO_CAPTION
     xlabel: Optional[str] = None
     ylabel: Optional[str] = None
     # each: {x, y, text, dx, dy, arrow, ha, va} — see FigureMixin._draw_annotations
@@ -118,8 +121,9 @@ class AxesSpec:
     x_date_format: Optional[str] = None
     x_minor_ticks: Optional[int] = None
     x_year_tick_interval: Optional[int] = None
-    xlim: Optional[Tuple[float, float]] = None
-    ylim: Optional[Tuple[float, float]] = None
+    # (min, max); either side may be None = "auto" (render() fills it from the chart's own range)
+    xlim: Optional[Tuple[Optional[float], Optional[float]]] = None
+    ylim: Optional[Tuple[Optional[float], Optional[float]]] = None
     y_formatter: str = "compact"  # one of Y_FORMATTERS
     y_formatter_decimals: int = 0  # for "norm_max"
     y_formatter_custom: str = "{x:,.0f}"  # for "custom"

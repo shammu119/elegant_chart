@@ -255,6 +255,52 @@ def build_call_kwargs(spec: ChartSpec, df: pd.DataFrame) -> tuple[str, dict[str,
 # ── render / output ──────────────────────────────────────────────────────────
 
 
+def _is_partial(lim: Optional[tuple]) -> bool:
+    return lim is not None and any(v is None for v in lim)
+
+
+def _fill_partial_limits(spec: ChartSpec, df: pd.DataFrame) -> ChartSpec:
+    """Resolve half-filled ``xlim``/``ylim`` (one side auto) into full pairs.
+
+    The library takes a complete ``(min, max)`` and treats it as authoritative,
+    so an "auto" side has to be a number by the time it gets there.  The
+    chart's own auto range is read from a first draw with that limit left
+    unset, which keeps its headroom and label padding on the open side.
+    Returns ``spec`` itself when nothing is partial, else a filled copy.
+    """
+    a = spec.style.axes
+    partial = [n for n in ("xlim", "ylim") if _is_partial(getattr(a, n))]
+    if not partial:
+        return spec
+    probe = ChartSpec.from_dict(spec.to_dict())
+    for name in partial:
+        setattr(probe.style.axes, name, None)
+    res = render(probe, df)
+    try:
+        auto = {"xlim": res.ax.get_xlim(), "ylim": res.ax.get_ylim()}
+    finally:
+        res.close()
+    if spec.chart.type == "hbar":  # the value axis is horizontal; ylim means "value range"
+        auto = {"xlim": tuple(sorted(auto["ylim"])), "ylim": auto["xlim"]}
+    filled = ChartSpec.from_dict(spec.to_dict())
+    for name in partial:
+        lo, hi = getattr(a, name)
+        setattr(
+            filled.style.axes,
+            name,
+            (auto[name][0] if lo is None else lo, auto[name][1] if hi is None else hi),
+        )
+    return filled
+
+
+def _check_limits(spec: ChartSpec) -> None:
+    for label, lim in (("X", spec.style.axes.xlim), ("Y", spec.style.axes.ylim)):
+        if lim is not None and lim[0] is not None and lim[1] is not None and lim[0] >= lim[1]:
+            raise SpecError(
+                f"{label} min ({lim[0]:g}) must be less than {label} max ({lim[1]:g})."
+            )
+
+
 def render(spec: ChartSpec, df: pd.DataFrame) -> RenderResult:
     """Draw ``spec`` with ``df`` and return the live figure (caller closes it)."""
     with RENDER_LOCK:
@@ -262,6 +308,8 @@ def render(spec: ChartSpec, df: pd.DataFrame) -> RenderResult:
 
 
 def _render(spec: ChartSpec, df: pd.DataFrame) -> RenderResult:
+    spec = _fill_partial_limits(spec, df)
+    _check_limits(spec)
     method, call_kwargs = build_call_kwargs(spec, df)
     x_col, _ = resolve_columns(spec, df)
     try:
