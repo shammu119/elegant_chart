@@ -31,7 +31,7 @@ so this is the short version.
 1. Filter rows: `Type` `=` `International`
 2. Group and total up: by `Airline`, `sum`, value column `Total Passengers`
 3. Sort: `Total Passengers`, **Smallest first** off
-4. Keep the top rows: How many rows to keep `10`
+4. Keep the top or bottom rows: `Top`, How many rows `10`
 
 **Chart tab:** Horizontal bar · X column `Airline` · Series `Total Passengers` · ✅ Value labels
 

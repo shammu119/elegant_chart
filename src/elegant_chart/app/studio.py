@@ -33,7 +33,13 @@ import streamlit as st  # noqa: E402
 
 from elegant_chart import sources  # noqa: E402
 from elegant_chart.app import ux  # noqa: E402
-from elegant_chart.pipeline import apply_step  # noqa: E402
+from elegant_chart.pipeline import (  # noqa: E402
+    SCALE_FACTORS,
+    apply_step,
+    is_year_numbers,
+    snap,
+    value_columns,
+)
 from elegant_chart.pipeline import apply_steps as run_pipeline  # noqa: E402
 from elegant_chart.render import (  # noqa: E402
     EXPORT_DPI,
@@ -47,12 +53,16 @@ from elegant_chart.render import (  # noqa: E402
 )
 from elegant_chart.spec import (  # noqa: E402
     AGGREGATIONS,
+    CHANGE_KINDS,
     CHART_TYPE_LABELS,
     CHART_TYPES,
     COLOR_ROLES,
+    DATE_SNAPS,
     FILTER_OPERATORS,
     LABEL_WIDTH_STRATEGIES,
-    STEP_OPS,
+    PERIODS,
+    RESAMPLE_AGGS,
+    SCALE_UNITS,
     THEMES,
     Y_FORMATTERS,
     ChartSpec,
@@ -68,9 +78,53 @@ STEP_LABELS = {
     "filter": "Filter rows",
     "group": "Group and total up",
     "sort": "Sort",
-    "top_n": "Keep the top rows",
+    "top_n": "Keep the top or bottom rows",
     "pivot": "Pivot (long → wide)",
+    "date_filter": "Keep some years or months",
+    "snap_dates": "Move dates to month start or end",
+    "resample": "Roll up by month, quarter or year",
+    "scale": "Show in thousands, millions…",
+    "change": "Change over time (%, index)",
+    "rolling": "Moving average",
+    "rename": "Rename a column",
 }
+# The "Add step" menu, grouped so a dozen steps stay easy to scan.
+STEP_MENU: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("Rows", ("filter", "top_n", "sort")),
+    ("Dates", ("date_filter", "snap_dates", "resample")),
+    ("Numbers", ("scale", "change", "rolling")),
+    ("Shape", ("group", "pivot", "rename")),
+)
+SNAP_LABELS = {
+    "month_end": "End of month",
+    "month_start": "Start of month",
+    "quarter_end": "End of quarter",
+    "quarter_start": "Start of quarter",
+    "year_end": "End of year",
+    "year_start": "Start of year",
+}
+SCALE_LABELS = {
+    "thousands": "Thousands (÷ 1,000)",
+    "millions": "Millions (÷ 1,000,000)",
+    "billions": "Billions (÷ 1,000,000,000)",
+    "hundreds": "Hundreds (÷ 100)",
+    "custom": "Divide by my own number",
+}
+CHANGE_LABELS = {
+    "pct_prev": "% change from the row before",
+    "yoy": "% change from a year earlier",
+    "diff_prev": "Change from the row before",
+    "index": "Index (first row = 100)",
+}
+RESAMPLE_LABELS = {
+    "sum": "Add up",
+    "mean": "Average",
+    "last": "Last value",
+    "first": "First value",
+    "min": "Smallest",
+    "max": "Largest",
+}
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 IMAGE_TYPES = ["png", "jpg", "jpeg", "webp"]
 
 
@@ -356,18 +410,20 @@ def data_panel() -> Optional[pd.DataFrame]:
         with st.expander(label, expanded=open_now, key=f"step.{sid}.exp"):
             if res.status == "skipped":
                 st.caption("Skipped: an earlier step failed.")
-            _step_controls(i, step, sid, run.columns_in[i])
+            _step_controls(i, step, sid, run.frames_in[i], run.frames_out[i])
             if res.status == "error":
                 st.error(res.error)
     with st.popover("＋ Add step", type="tertiary"):
-        for op in STEP_OPS:
-            st.button(
-                STEP_LABELS.get(op, op),
-                key=f"add_step.{op}",
-                on_click=_add_step,
-                args=(op,),
-                type="tertiary",
-            )
+        for title, ops in STEP_MENU:
+            st.caption(title)
+            for op in ops:
+                st.button(
+                    STEP_LABELS.get(op, op),
+                    key=f"add_step.{op}",
+                    on_click=_add_step,
+                    args=(op,),
+                    type="tertiary",
+                )
 
     _group("Result")
     result = run.df
@@ -388,9 +444,17 @@ _STEP_WIDGET_PARAMS = {
     "filter": {"column": "column", "op": "operator", "value": "value"},
     "group": {"by": "by", "agg": "agg", "columns": "columns"},
     "sort": {"column": "column", "asc": "ascending"},
-    "top_n": {"n": "n"},
+    "top_n": {"n": "n", "which": "which", "column": "column"},
     "pivot": {"index": "index", "columns": "columns", "values": "values"},
+    "date_filter": {"column": "column", "years": "years", "months": "months"},
+    "snap_dates": {"column": "column", "to": "to"},
+    "resample": {"column": "column", "period": "period", "agg": "agg"},
+    "scale": {"columns": "columns", "unit": "unit", "factor": "factor"},
+    "change": {"columns": "columns", "kind": "kind", "date_column": "date_column"},
+    "rolling": {"columns": "columns", "window": "window"},
+    "rename": {"column": "column", "to": "to"},
 }
+_INT_PARAMS = ("n", "window")
 
 
 def _sync_steps_from_widgets(steps: list, step_ids: list) -> None:
@@ -406,14 +470,15 @@ def _sync_steps_from_widgets(steps: list, step_ids: list) -> None:
             key = f"step.{sid}.{suffix}"
             if key in ss:
                 val = ss[key]
-                step.params[param] = int(val) if param == "n" and val is not None else val
+                step.params[param] = int(val) if param in _INT_PARAMS and val is not None else val
 
 
 @dataclass
 class _PipelineRun:
     df: pd.DataFrame
     results: list  # pipeline.StepResult per step
-    columns_in: list  # input columns of each step (for the step's column pickers)
+    frames_in: list  # input frame of each step (column pickers, year options)
+    frames_out: list  # output frame of each step, None after a failure (previews)
 
 
 def _pipeline(raw: pd.DataFrame, steps: list) -> _PipelineRun:
@@ -423,25 +488,40 @@ def _pipeline(raw: pd.DataFrame, steps: list) -> _PipelineRun:
     pandas pipeline when neither the data nor the steps changed.
     """
     ss = st.session_state
-    key = json.dumps(
-        [ss.get("raw_key"), [[s.op, s.params] for s in steps]], sort_keys=True, default=str
-    )
+
+    def memo_key() -> str:
+        return json.dumps(
+            [ss.get("raw_key"), [[s.op, s.params] for s in steps]], sort_keys=True, default=str
+        )
+
     memo = ss.get("pipeline_memo")
-    if memo and memo[0] == key:
+    if memo and memo[0] == memo_key():
         return memo[1]
-    cols_in, current, failed = [], raw, False
+    frames_in, frames_out, current, failed = [], [], raw, False
     for step in steps:
-        cols_in.append(list(current.columns))
+        frames_in.append(current)
         if failed:
+            frames_out.append(None)
             continue
+        _pick_date_column(step, current)
         try:
             current = apply_step(current, step.op, step.params)
+            frames_out.append(current)
         except Exception:  # noqa: BLE001 — reported by run_pipeline below
             failed = True
+            frames_out.append(None)
     result = run_pipeline(raw, steps)  # the library pipeline is the source of truth
-    run = _PipelineRun(result.df, result.steps, cols_in)
-    ss.pipeline_memo = (key, run)
+    run = _PipelineRun(result.df, result.steps, frames_in, frames_out)
+    ss.pipeline_memo = (memo_key(), run)  # after any auto-picked columns were filled in
     return run
+
+
+def _pick_date_column(step: StepSpec, df: pd.DataFrame) -> None:
+    """A new date step starts on the first date column, so it works on its first run."""
+    if step.op in ("date_filter", "snap_dates", "resample") and not step.params.get("column"):
+        found = _date_columns(df, years_too=step.op == "date_filter")
+        if found:
+            step.params["column"] = found[0]
 
 
 def _step_summary(step: StepSpec) -> str:
@@ -454,9 +534,32 @@ def _step_summary(step: StepSpec) -> str:
         if step.op == "sort" and p.get("column") is not None:
             return f"Sort · {p['column']} {'↑' if p.get('ascending') else '↓'}"
         if step.op == "top_n":
-            return f"Top {int(p.get('n', 10))}"
+            word = "Bottom" if p.get("which") == "bottom" else "Top"
+            by = f" by {p['column']}" if p.get("column") else ""
+            return f"{word} {int(p.get('n', 10))}{by}"
         if step.op == "pivot" and p.get("index") is not None:
             return f"Pivot · {p['index']} × {p.get('columns')}"
+        if step.op == "date_filter":
+            parts = []
+            if p.get("years"):
+                lo, hi = min(p["years"]), max(p["years"])
+                parts.append(str(lo) if lo == hi else f"{lo}–{hi}")
+            if p.get("months"):
+                parts.append(", ".join(MONTHS[int(m) - 1] for m in sorted(p["months"])))
+            return "Keep · " + (" · ".join(parts) or "all dates")
+        if step.op == "snap_dates":
+            return f"Dates → {SNAP_LABELS.get(p.get('to', 'month_end'), '').lower()}"
+        if step.op == "resample":
+            agg = RESAMPLE_LABELS.get(p.get("agg", "sum"), "").lower()
+            return f"Roll up · by {p.get('period', 'year')} · {agg}"
+        if step.op == "scale":
+            return SCALE_LABELS.get(p.get("unit", "thousands"), "Scale")
+        if step.op == "change":
+            return CHANGE_LABELS.get(p.get("kind", "pct_prev"), "Change")
+        if step.op == "rolling":
+            return f"Average of {int(p.get('window', 3))} rows"
+        if step.op == "rename" and p.get("column") is not None:
+            return f"Rename · {p['column']} → {p.get('to') or '…'}"
     except Exception:  # noqa: BLE001 — a summary must never break the panel
         pass
     return STEP_LABELS.get(step.op, step.op)
@@ -468,8 +571,13 @@ def _add_step(op: str) -> None:
         "filter": {"operator": "="},
         "group": {"agg": "sum"},
         "sort": {"ascending": False},
-        "top_n": {"n": 10},
+        "top_n": {"n": 10, "which": "top"},
         "pivot": {},
+        "snap_dates": {"to": "month_end"},
+        "resample": {"period": "year", "agg": "sum"},
+        "scale": {"unit": "thousands"},
+        "change": {"kind": "pct_prev"},
+        "rolling": {"window": 3},
     }
     ss.spec.steps.append(StepSpec(op, dict(defaults.get(op, {}))))
     ss.step_ids.append(uuid.uuid4().hex[:8])
@@ -490,8 +598,85 @@ def _delete_step(i: int) -> None:
     del ss.step_ids[i]
 
 
-def _step_controls(i: int, step: StepSpec, sid: str, cols: list) -> None:
+def _date_columns(df: pd.DataFrame, years_too: bool = False) -> list:
+    return [
+        c
+        for c in df.columns
+        if pd.api.types.is_datetime64_any_dtype(df[c]) or (years_too and is_year_numbers(df[c]))
+    ]
+
+
+def _no_dates_note(df: pd.DataFrame) -> None:
+    if not _date_columns(df):
+        st.caption(
+            "No date column at this step. Text such as “Jan 2024” or “31/01/2024” "
+            "is read as dates when the file loads; check the column in Result below."
+        )
+
+
+def _first_value(s: pd.Series) -> Any:
+    v = s.dropna()
+    return v.iloc[0] if not v.empty else None
+
+
+def _value_cols_picker(p: dict, key: str, df: pd.DataFrame, label: str) -> list:
+    """Multiselect of number columns; blank means every value column."""
+    nums = [c for c in df.select_dtypes("number").columns if not pd.api.types.is_bool_dtype(df[c])]
+    prev = list(p.get("columns") or [])
+    p["columns"] = st.multiselect(
+        label,
+        nums + [c for c in prev if c not in nums],
+        default=prev,
+        key=key,
+        placeholder="Every number column",
+        help="Leave empty to change every number column. Year numbers (2021) are left alone.",
+    )
+    return p["columns"] or value_columns(df)
+
+
+def _date_filter_controls(p: dict, k: str, df: pd.DataFrame) -> None:
+    options = _date_columns(df, years_too=True)
+    if not options:
+        st.caption("No date or year column at this step.")
+    p["column"] = _select(
+        "Date or year column", options, p.get("column"), f"{k}.column", keep_missing=True
+    )
+    if p["column"] not in df.columns:
+        return
+    s = df[p["column"]]
+    years = ux.year_options(s)
+    if len(years) >= 2:
+        prev = p.get("years") or [years[0], years[-1]]
+        lo = next((y for y in years if y >= min(prev)), years[0])
+        hi = next((y for y in reversed(years) if y <= max(prev)), years[-1])
+        key = f"{k}.years"
+        held = st.session_state.get(key)
+        if held is not None and not set(held) <= set(years):
+            del st.session_state[key]  # the column changed; its years no longer fit
+        picked = st.select_slider("Years", options=years, value=(min(lo, hi), max(lo, hi)), key=key)
+        p["years"] = [] if tuple(picked) == (years[0], years[-1]) else list(picked)
+    else:
+        p["years"] = []
+    if pd.api.types.is_datetime64_any_dtype(s):
+        p["months"] = st.pills(
+            "Months (none picked = every month)",
+            list(range(1, 13)),
+            selection_mode="multi",
+            default=[int(m) for m in p.get("months") or []],
+            format_func=lambda m: MONTHS[m - 1],
+            key=f"{k}.months",
+            help="Pick Dec alone to keep one value per year.",
+        )
+    else:
+        p["months"] = []
+        st.caption("This column holds year numbers, so there are no months to pick.")
+
+
+def _step_controls(
+    i: int, step: StepSpec, sid: str, df_in: pd.DataFrame, df_out: Optional[pd.DataFrame]
+) -> None:
     p, k = step.params, f"step.{sid}"
+    cols = list(df_in.columns)
     if step.op == "filter":
         c1, c2 = st.columns([3, 1])
         with c1:
@@ -539,15 +724,25 @@ def _step_controls(i: int, step: StepSpec, sid: str, cols: list) -> None:
             help="Off puts the largest values at the top.",
         )
     elif step.op == "top_n":
-        p["n"] = int(
-            st.number_input(
-                "How many rows to keep",
-                min_value=0,
-                step=1,
-                value=int(p.get("n", 10)),
-                key=f"{k}.n",
-                help="Keeps the first N rows. Sort first to keep the biggest.",
+        c1, c2 = st.columns([1, 1], vertical_alignment="bottom")
+        with c1:
+            p["which"] = _segmented(
+                "Keep", ("top", "bottom"), p.get("which", "top"), f"{k}.which", fmt=str.capitalize
             )
+        with c2:
+            p["n"] = int(
+                st.number_input(
+                    "How many rows", min_value=0, step=1, value=int(p.get("n", 10)), key=f"{k}.n"
+                )
+            )
+        p["column"] = _select(
+            "Ranked by",
+            [None, *cols],
+            p.get("column"),
+            f"{k}.column",
+            fmt=lambda c: "Current row order" if c is None else str(c),
+            keep_missing=True,
+            help="Pick a number column to keep its biggest (top) or smallest (bottom) rows.",
         )
     elif step.op == "pivot":
         p["index"] = _select(
@@ -558,6 +753,99 @@ def _step_controls(i: int, step: StepSpec, sid: str, cols: list) -> None:
         )
         p["values"] = _select(
             "Numbers to plot", cols, p.get("values"), f"{k}.values", keep_missing=True
+        )
+    elif step.op == "date_filter":
+        _date_filter_controls(p, k, df_in)
+    elif step.op == "snap_dates":
+        _no_dates_note(df_in)
+        p["column"] = _select(
+            "Date column", _date_columns(df_in), p.get("column"), f"{k}.column", keep_missing=True
+        )
+        first = _first_value(df_in[p["column"]]) if p["column"] in df_in.columns else None
+
+        def snap_label(to: str) -> str:
+            if not isinstance(first, pd.Timestamp):
+                return SNAP_LABELS[to]
+            moved = snap(pd.Series([first]), to).iloc[0]
+            return f"{SNAP_LABELS[to]}  ·  {moved.day} {moved:%b %Y}"
+
+        p["to"] = _select("Move each date to", DATE_SNAPS, p.get("to"), f"{k}.to", fmt=snap_label)
+    elif step.op == "resample":
+        _no_dates_note(df_in)
+        p["column"] = _select(
+            "Date column", _date_columns(df_in), p.get("column"), f"{k}.column", keep_missing=True
+        )
+        p["period"] = _segmented(
+            "One row per", PERIODS, p.get("period", "year"), f"{k}.period", fmt=str.capitalize
+        )
+        p["agg"] = _select(
+            "Combine the numbers by",
+            RESAMPLE_AGGS,
+            p.get("agg", "sum"),
+            f"{k}.agg",
+            fmt=RESAMPLE_LABELS.__getitem__,
+            help="Add up for flows (sales, arrivals); last value for levels (reserves, prices).",
+        )
+        st.caption("Each row is dated at the end of its period. Text columns stay as groups.")
+    elif step.op == "scale":
+        targets = _value_cols_picker(p, f"{k}.columns", df_in, "Columns to change")
+        sample = _first_value(df_in[targets[0]]) if targets else None
+
+        def unit_label(u: str) -> str:
+            if sample is None or u == "custom":
+                return SCALE_LABELS[u]
+            shown = ux.before_after(pd.Series([sample]), pd.Series([sample / SCALE_FACTORS[u]]))
+            return f"{SCALE_LABELS[u]}  ·  {shown}"
+
+        p["unit"] = _select(
+            "Show values in", SCALE_UNITS, p.get("unit"), f"{k}.unit", fmt=unit_label
+        )
+        if p["unit"] == "custom":
+            p["factor"] = st.number_input(
+                "Divide by", value=p.get("factor"), key=f"{k}.factor", placeholder="e.g. 1000"
+            )
+        elif df_out is not None and targets and targets[0] in df_out.columns:
+            st.caption(f"{targets[0]}: {ux.before_after(df_in[targets[0]], df_out[targets[0]])}")
+        st.caption("Say the unit in the subtitle, e.g. “Thousands of tourists”.")
+    elif step.op == "change":
+        p["kind"] = _select(
+            "Show", CHANGE_KINDS, p.get("kind"), f"{k}.kind", fmt=CHANGE_LABELS.__getitem__
+        )
+        if p["kind"] == "yoy":
+            p["date_column"] = _select(
+                "Date column",
+                _date_columns(df_in, years_too=True),
+                p.get("date_column"),
+                f"{k}.date_column",
+                keep_missing=True,
+                help="Used to tell how many rows make a year (12 for monthly data).",
+            )
+        _value_cols_picker(p, f"{k}.columns", df_in, "Columns to change")
+        if p["kind"] != "index":
+            st.caption(
+                "Works down the rows in order. The first row(s) have nothing to "
+                "compare with, so they are dropped."
+            )
+    elif step.op == "rolling":
+        p["window"] = int(
+            st.number_input(
+                "Average over this many rows",
+                min_value=1,
+                step=1,
+                value=int(p.get("window", 3)),
+                key=f"{k}.window",
+                help="12 on monthly data gives a 12-month moving average.",
+            )
+        )
+        _value_cols_picker(p, f"{k}.columns", df_in, "Columns to smooth")
+        st.caption("The first rows, before a full window is available, are dropped.")
+    elif step.op == "rename":
+        p["column"] = _select("Column", cols, p.get("column"), f"{k}.column", keep_missing=True)
+        p["to"] = st.text_input(
+            "New name",
+            value=str(p.get("to") or ""),
+            key=f"{k}.to",
+            help="Series names show in the legend, so make them read well.",
         )
     b1, b2, b3, _ = st.columns([1, 1, 1, 3])
     b1.button("↑", key=f"{k}.up", on_click=_move_step, args=(i, -1), help="Move up")
@@ -1000,7 +1288,11 @@ def _date_format_picker(a: Any, df: Optional[pd.DataFrame], x_col: Optional[str]
             "Your date code",
             value=current if current and current not in presets else "%b %Y",
             key="axes.x_date_format",
-            help="Codes: %Y 2024 · %y 24 · %b Jan · %B January · %m 01 · %d 05",
+            help=(
+                "Codes: %Y 2024 · %y 24 · %b Jan · %B January · %J J (month initial) · "
+                "%m 01 · %d 05. Use first|rest to style the first label differently: "
+                "%b %Y|%b gives Jan 2024, Feb, Mar"
+            ),
         )
     else:
         code = choice

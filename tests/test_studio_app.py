@@ -284,3 +284,74 @@ def test_one_sided_axis_range_reaches_the_chart():
     assert axes.ylim == (0.0, None)
     assert axes.xlim == (None, 2030.0)
     assert len(at.get("image")) == 1
+
+
+def _sample_app():
+    at = AppTest.from_file(STUDIO, default_timeout=60)
+    at.run()
+    at.button(key="sample").click()
+    at.run()
+    return at
+
+
+def _result(at):
+    return at.session_state.pipeline_memo[1].df
+
+
+def _last_step_key(at, suffix):
+    return f"step.{at.session_state.step_ids[-1]}.{suffix}"
+
+
+def test_scale_step_shows_values_in_thousands():
+    at = _sample_app()
+    before = _result(at)["China"].iloc[0]
+    at.button(key="add_step.scale").click()
+    at.run()
+    assert not at.exception, at.exception
+    assert not at.error, [e.value for e in at.error]
+    assert _result(at)["China"].iloc[0] == pytest.approx(before / 1000)
+    assert _result(at)["Year"].iloc[0] == 2019  # year labels are not scaled
+    assert len(at.get("image")) == 1
+
+
+def test_year_range_and_top_bottom_steps():
+    at = _sample_app()
+    at.button(key="add_step.date_filter").click()
+    at.run()
+    at.select_slider(key=_last_step_key(at, "years")).set_range(2021, 2023)
+    at.run()
+    assert not at.exception, at.exception
+    assert _result(at)["Year"].tolist() == [2021, 2022, 2023]
+    smallest = _result(at)["China"].min()
+    at.button(key="add_step.top_n").click()
+    at.run()
+    at.segmented_control(key=_last_step_key(at, "which")).set_value("bottom")
+    at.number_input(key=_last_step_key(at, "n")).set_value(1)
+    at.selectbox(key=_last_step_key(at, "column")).set_value("China")
+    at.run()
+    assert not at.error, [e.value for e in at.error]
+    res = _result(at)
+    assert res["China"].tolist() == [smallest]
+
+
+def test_date_steps_on_monthly_data():
+    at = _app_with_data()
+    at.session_state.raw_df = pd.DataFrame(
+        {
+            "Date": pd.date_range("2022-01-01", periods=24, freq="MS") + pd.Timedelta(days=14),
+            "Sales": [float(i + 1) for i in range(24)],
+        }
+    )
+    at.session_state.raw_key = "monthly"
+    at.run()
+    at.button(key="add_step.snap_dates").click()
+    at.run()
+    assert _result(at)["Date"].iloc[0] == pd.Timestamp("2022-01-31")
+    at.button(key="add_step.resample").click()
+    at.run()
+    assert not at.exception, at.exception
+    assert _result(at)["Sales"].tolist() == [78.0, 222.0]
+    at.button(key="add_step.change").click()
+    at.run()
+    assert not at.error, [e.value for e in at.error]
+    assert _result(at)["Sales"].iloc[0] == pytest.approx((222 / 78 - 1) * 100)

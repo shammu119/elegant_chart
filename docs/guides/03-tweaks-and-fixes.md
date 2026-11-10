@@ -12,6 +12,8 @@ and watch the chart.
 | Thin out crowded x-axis labels | Axes | Set **Most labels to show**, for example `5`, or set **Label every…** |
 | Label every year | Axes | **Label every…** `1` |
 | Show months as *Jan 24* | Axes | **Date style** → Custom, code `%b %y`. This needs a date column. The list shows what each style prints before you pick it |
+| Show months as *J F M A…* | Axes | **Date style** `Month initial`, or `First month in full, then initials` for *Jan F M A…*. Initials are narrow, so every month gets a label (up to 13) |
+| Give the first label the year, e.g. *Jan 2026 Feb Mar…* | Axes | **Date style** → Custom, code `%b %Y\|%b`. The part before `\|` is used for the first label only |
 | Show years only on a monthly chart | Axes | **Date style** `Year` together with **Label every… years (line)** `1` |
 | Add a small tick between labels | Axes | **Small ticks between labels** `1` (for example, mid-year) |
 | Write `'21` instead of `2021` | Chart | Tick **Compact years** |
@@ -43,6 +45,28 @@ and a small preview axis shows the labels your chart will get.
 If your x values are names, or whole numbers such as the year `2024`, they print
 as they are, so the app doesn't offer one. To format dates, use a column of
 dates (write them as `2024-03-01` in a CSV file).
+
+## Data steps
+
+Click **＋ Add step** in the Data panel. The menu groups the steps into Rows,
+Dates, Numbers and Shape. Steps run from top to bottom, and each one shows how
+many rows are left after it.
+
+| I want to… | Step | What to do |
+|---|---|---|
+| Keep the 10 biggest (or smallest) | **Keep the top or bottom rows** | **Top** or **Bottom**, how many, and **Ranked by** a number column. With *Current row order* it keeps the first (or last) rows |
+| Show only 2020 to 2024 | **Keep some years or months** | Drag the **Years** slider. It works on dates and on year numbers such as `2021` |
+| Keep one value per year, e.g. December | **Keep some years or months** | Pick **Dec** under **Months**. No month picked means every month |
+| Put every date on the last day of its month | **Move dates to month start or end** | **End of month**. Each choice shows what your first date becomes |
+| Turn monthly data into yearly | **Roll up by month, quarter or year** | **One row per** `Year`, then **Add up** for flows (sales, arrivals) or **Last value** for levels (reserves, prices). Rows are dated at the end of each period |
+| Show values in thousands or millions | **Show in thousands, millions…** | Pick the unit. Each choice shows what your first value becomes. Then say the unit in the subtitle |
+| Show growth | **Change over time (%, index)** | **% change from a year earlier** (it works out 12 rows for monthly data, 4 for quarterly), **% change from the row before**, **Change from the row before**, or **Index (first row = 100)** |
+| Smooth a jumpy line | **Moving average** | **Average over this many rows**, e.g. `12` on monthly data |
+| Give a series a nicer legend name | **Rename a column** | Pick the column and type the new name |
+
+Steps that change numbers (thousands, change, moving average) change every
+number column if you leave **Columns to change** empty. Year numbers such as
+`2021` are never changed.
 
 ## Themes
 

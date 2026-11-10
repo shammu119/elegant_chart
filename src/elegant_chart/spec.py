@@ -24,9 +24,34 @@ CHART_TYPE_LABELS = {
     "line": "Line",
     "bump": "Bump (ranking)",
 }
-STEP_OPS: Tuple[str, ...] = ("filter", "group", "sort", "top_n", "pivot")
+STEP_OPS: Tuple[str, ...] = (
+    "filter",
+    "group",
+    "sort",
+    "top_n",
+    "pivot",
+    "date_filter",
+    "snap_dates",
+    "resample",
+    "scale",
+    "change",
+    "rolling",
+    "rename",
+)
 FILTER_OPERATORS: Tuple[str, ...] = ("=", "≠", ">", "≥", "<", "≤", "in")
 AGGREGATIONS: Tuple[str, ...] = ("sum", "mean", "count", "min", "max")
+DATE_SNAPS: Tuple[str, ...] = (
+    "month_end",
+    "month_start",
+    "quarter_end",
+    "quarter_start",
+    "year_end",
+    "year_start",
+)
+PERIODS: Tuple[str, ...] = ("month", "quarter", "year")
+RESAMPLE_AGGS: Tuple[str, ...] = ("sum", "mean", "last", "first", "min", "max")
+SCALE_UNITS: Tuple[str, ...] = ("thousands", "millions", "billions", "hundreds", "custom")
+CHANGE_KINDS: Tuple[str, ...] = ("pct_prev", "yoy", "diff_prev", "index")
 THEMES: Tuple[str, ...] = ("newsroom_dark", "newsroom_muted", "consulting_light", "consulting_dark")
 COLOR_ROLES: Tuple[str, ...] = ("primary", "secondary", "tertiary", "quaternary", "quinary")
 Y_FORMATTERS: Tuple[str, ...] = ("compact", "plain", "percent", "norm_max", "custom")

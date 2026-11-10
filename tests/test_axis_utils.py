@@ -86,3 +86,25 @@ def test_touch_avoidance_bumps_y_max():
     result = calc_y_axis(0, 100, "bar")
     assert result["y_max"] > 100
     _assert_evenly_spaced(result)
+
+
+# ── date label codes ──────────────────────────────────────────────────────────
+
+from datetime import datetime as _dt  # noqa: E402
+
+from elegant_chart.axis_utils import format_date_label  # noqa: E402
+
+
+def test_month_initial_code():
+    assert format_date_label("%J", _dt(2026, 3, 1)) == "M"
+    assert format_date_label("%J %y", _dt(2026, 9, 1)) == "S 26"
+
+
+def test_first_label_part_before_the_bar():
+    assert format_date_label("%b|%J", _dt(2026, 1, 1), first=True) == "Jan"
+    assert format_date_label("%b|%J", _dt(2026, 2, 1)) == "F"
+    assert format_date_label("%b %Y|%b", _dt(2026, 1, 1), first=True) == "Jan 2026"
+
+
+def test_plain_codes_unchanged():
+    assert format_date_label("%Y", _dt(2026, 1, 1), first=True) == "2026"

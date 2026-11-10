@@ -82,12 +82,17 @@ first, top 10 only. That takes four steps. For each one, click
 | 1 | **Filter rows** | Column `Type`, Condition `=`, Value `International` | Keeps only international flights |
 | 2 | **Group and total up** | Group by `Airline`, Combine values using `sum`, Columns to combine `Total Passengers` | Adds the three years together, giving one row per airline |
 | 3 | **Sort** | Column `Total Passengers`, leave **Smallest first** off | Puts the biggest airline first |
-| 4 | **Keep the top rows** | How many rows to keep `10` | Keeps the first 10 rows |
+| 4 | **Keep the top or bottom rows** | Keep `Top`, How many rows `10`, leave **Ranked by** on *Current row order* | Keeps the first 10 rows |
 
 <img src="images/studio_data_panel.png" width="360" alt="The four reshape steps filled in">
 
 Under each step, a small note such as **→ 12 rows** tells you how many rows
 are left after it. The table at the bottom shows the final result.
+
+> **Shortcut:** Steps 3 and 4 can be one step: **Keep the top or bottom rows**
+> with **Ranked by** `Total Passengers` sorts and cuts in one go. For every
+> other step (years, months, thousands, growth), see
+> [Data steps](03-tweaks-and-fixes.md#data-steps).
 
 > **Tip:** In step 2, always choose **Columns to combine**. If you leave it empty,
 > the app adds up *every* number column, including `Year`, which gives you

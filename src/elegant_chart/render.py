@@ -296,9 +296,7 @@ def _fill_partial_limits(spec: ChartSpec, df: pd.DataFrame) -> ChartSpec:
 def _check_limits(spec: ChartSpec) -> None:
     for label, lim in (("X", spec.style.axes.xlim), ("Y", spec.style.axes.ylim)):
         if lim is not None and lim[0] is not None and lim[1] is not None and lim[0] >= lim[1]:
-            raise SpecError(
-                f"{label} min ({lim[0]:g}) must be less than {label} max ({lim[1]:g})."
-            )
+            raise SpecError(f"{label} min ({lim[0]:g}) must be less than {label} max ({lim[1]:g}).")
 
 
 def render(spec: ChartSpec, df: pd.DataFrame) -> RenderResult:

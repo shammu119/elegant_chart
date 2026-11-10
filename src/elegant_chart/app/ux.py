@@ -15,6 +15,7 @@ from typing import Any, Optional, Sequence
 
 import pandas as pd
 
+from elegant_chart.axis_utils import format_date_label
 from elegant_chart.style_mixin import THEMES as _THEME_DEFS
 
 # ── date labels ──────────────────────────────────────────────────────────────
@@ -24,8 +25,10 @@ DATE_PRESETS: tuple[tuple[str, str], ...] = (
     ("%y", "Short year"),
     ("%b %Y", "Month and year"),
     ("%B %Y", "Full month and year"),
+    ("%J", "Month initial"),
+    ("%b|%J", "First month in full, then initials"),
 )
-_KNOWN_CODES = set("YybBmdeaAjHMSIpUWwxXcZz%")
+_KNOWN_CODES = set("YybBmdeaAjHMSIpUWwxXcZz%J")
 _MAX_SAMPLES = 6
 
 
@@ -65,18 +68,21 @@ def date_label_preview(code: str, dates: Sequence[pd.Timestamp]) -> DatePreview:
     """Labels ``code`` would print for ``dates``, plus a plain-language problem if any."""
     if not code or not code.strip():
         return DatePreview([], "Type a format such as %Y, or pick one above.")
-    if re.search(r"%$", code):
+    parts = code.split("|")
+    if len(parts) > 2 or not all(p.strip() for p in parts):
+        return DatePreview([], "Use one | at most, with a code on each side, e.g. %b|%J.")
+    if any(re.search(r"%$", p) for p in parts):
         return DatePreview([], "The code ends with a lone %. Finish it, e.g. %Y.")
     for m in re.finditer(r"%(.)", code):
         if m.group(1) not in _KNOWN_CODES:
             return DatePreview([], f"{m.group(0)} is not a date code. Try %Y, %b or %m.")
     try:
-        labels = [d.strftime(code) for d in dates]
+        labels = [format_date_label(code, d, first=i == 0) for i, d in enumerate(dates)]
     except ValueError:
         return DatePreview([], "That format could not be read.")
     spans_years = len({d.year for d in dates}) > 1
     has_year = bool(re.search(r"%[YyjUW]", code))
-    has_month_day = bool(re.search(r"%[bBmdea]", code))
+    has_month_day = bool(re.search(r"%[bBmdeaJ]", code))
     if spans_years and not has_year:
         return DatePreview(labels, "This has no year, so labels repeat. Add %Y.")
     if _is_yearly(dates) and has_month_day:
@@ -131,6 +137,38 @@ def format_value(
     if abs(x) >= 1e3:
         return f"{_strip(x / 1e3)}K"
     return f"{x:.0f}" if float(x).is_integer() else f"{x:g}"
+
+
+# ── reshape step previews ────────────────────────────────────────────────────
+
+
+def _show(value: Any) -> str:
+    if isinstance(value, pd.Timestamp):
+        return f"{value.day} {value:%b %Y}"
+    if isinstance(value, (int, float)):
+        return f"{value:,.2f}".rstrip("0").rstrip(".")
+    return str(value)
+
+
+def before_after(before: pd.Series, after: pd.Series) -> Optional[str]:
+    """``"15 Jan 2024 → 31 Jan 2024"`` for the first row with a value on both sides."""
+    for b, a in zip(before, after):
+        if pd.notna(b) and pd.notna(a):
+            return f"{_show(b)} → {_show(a)}"
+    return None
+
+
+def year_options(values: pd.Series) -> list[int]:
+    """Sorted years present in a date column or a year-number column, else ``[]``."""
+    from elegant_chart.pipeline import is_year_numbers  # noqa: PLC0415
+
+    if pd.api.types.is_datetime64_any_dtype(values):
+        years = values.dropna().dt.year
+    elif is_year_numbers(values):
+        years = values.dropna()
+    else:
+        return []
+    return sorted({int(y) for y in years})
 
 
 # ── progress checklist ───────────────────────────────────────────────────────

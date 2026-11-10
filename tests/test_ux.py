@@ -103,3 +103,42 @@ def test_theme_helpers():
     svg = ux.theme_thumbnail_svg("newsroom_dark", [[1, 2, 3], [3, 2, 1]])
     assert svg.startswith("<svg") and svg.count("<polyline") == 2 and "#0b1014" in svg
     assert ux.theme_thumbnail_svg("newsroom_dark", []).count("<polyline") == 0
+
+
+# ── reshape step previews ────────────────────────────────────────────────────
+
+
+def test_before_after_shows_first_changed_date():
+    before = pd.Series(pd.to_datetime([None, "2024-01-15"]))
+    after = pd.Series(pd.to_datetime([None, "2024-01-31"]))
+    assert ux.before_after(before, after) == "15 Jan 2024 → 31 Jan 2024"
+
+
+def test_before_after_shows_numbers_compactly():
+    assert ux.before_after(pd.Series([1234567.0]), pd.Series([1234.567])) == "1,234,567 → 1,234.57"
+
+
+def test_before_after_is_none_without_values():
+    assert ux.before_after(pd.Series([None]), pd.Series([None])) is None
+
+
+def test_year_options_from_dates_and_year_numbers():
+    dates = pd.Series(pd.to_datetime(["2022-03-31", "2021-12-31", "2022-06-30"]))
+    assert ux.year_options(dates) == [2021, 2022]
+    assert ux.year_options(pd.Series([2020, 2019, 2020])) == [2019, 2020]
+    assert ux.year_options(pd.Series(["a", "b"])) == []
+
+
+MONTHS_2026 = [pd.Timestamp(2026, m, 1) for m in (1, 2, 3)]
+
+
+def test_month_initial_presets_preview_like_the_chart():
+    assert ux.date_label_preview("%J", MONTHS_2026).labels == ["J", "F", "M"]
+    preview = ux.date_label_preview("%b|%J", MONTHS_2026)
+    assert preview.labels == ["Jan", "F", "M"] and preview.problem is None
+    assert ("%J", "Month initial") in ux.DATE_PRESETS
+
+
+def test_first_label_split_must_have_two_parts():
+    assert ux.date_label_preview("%b|%J|%m", MONTHS_2026).problem
+    assert ux.date_label_preview("%b|", MONTHS_2026).problem

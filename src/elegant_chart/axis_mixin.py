@@ -11,6 +11,7 @@ from matplotlib.lines import Line2D
 from matplotlib.ticker import AutoMinorLocator, FixedFormatter, FixedLocator, FuncFormatter
 
 from ._logging import logger
+from .axis_utils import format_date_label
 from .types import FormatterSpec, YFormatter
 
 
@@ -355,9 +356,15 @@ class AxisMixin:
         minor_ticks: Optional[int] = None,
         date_format: Optional[str] = None,
     ) -> None:
-        auto_locator = mdates.AutoDateLocator(minticks=3, maxticks=max_x_ticks or 7)
+        # One-letter month initials (J F M) fit every month; wider labels cap at 7.
+        narrow = bool(date_format) and "%J" in date_format.split("|")[-1]
+        auto_locator = mdates.AutoDateLocator(
+            minticks=3, maxticks=max_x_ticks or (13 if narrow else 7)
+        )
         formatter = (
-            mdates.DateFormatter(date_format)
+            FuncFormatter(
+                lambda x, pos: format_date_label(date_format, mdates.num2date(x), first=pos == 0)
+            )
             if date_format
             else mdates.AutoDateFormatter(auto_locator)
         )
@@ -380,7 +387,11 @@ class AxisMixin:
             # floats — convert. Note tick_values() already returns its
             # result in date2num scale, so no further conversion is needed.
             dmin, dmax = mdates.num2date(lo), mdates.num2date(hi)
-            interior = [t for t in auto_locator.tick_values(dmin, dmax) if lo < t < hi]
+            # Inclusive: data that starts on a locator date (1 Jan) keeps that label.
+            eps = 1e-6
+            interior = [
+                t for t in auto_locator.tick_values(dmin, dmax) if lo - eps <= t <= hi + eps
+            ]
 
             if pin_endpoints:
                 # Take the auto cadence's interior ticks, drop any that crowd

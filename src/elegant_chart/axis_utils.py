@@ -101,3 +101,17 @@ def calc_y_axis(
         "tick_interval": _round_clean(interval),
         "zero_baseline": any(_approx_eq(t, 0.0, interval) for t in ticks),
     }
+
+
+# ── date tick labels ──────────────────────────────────────────────────────────
+
+MONTH_INITIALS = "JFMAMJJASOND"
+
+
+def format_date_label(code: str, date, first: bool = False) -> str:
+    """strftime ``code`` plus two extras: ``%J`` is the month's initial (J, F, M…),
+    and ``first|rest`` uses ``first`` for the first label only (``%b|%J`` → Jan F M).
+    """
+    head, sep, rest = code.partition("|")
+    part = head if first or not sep else rest
+    return date.strftime(part.replace("%J", MONTH_INITIALS[date.month - 1]))

@@ -897,3 +897,32 @@ def test_bars_and_value_labels_clear_ytick_labels(value_labels):
         for d in others:
             assert not tb.overlaps(d), (tb, d)
     plt.close(fig)
+
+
+# ── date labels on the data's own first/last date ─────────────────────────────
+
+MONTH_STARTS = list(pd.date_range("2026-01-01", periods=9, freq="MS"))
+
+
+def _xlabels(fig, ax):
+    fig.canvas.draw()
+    return [t.get_text() for t in ax.get_xticklabels() if t.get_text()]
+
+
+@pytest.mark.parametrize("kind", ["bar", "line"])
+def test_date_labels_include_ticks_on_the_first_and_last_date(kind):
+    c = make_chart()
+    fig, ax = getattr(c, kind)(
+        x=MONTH_STARTS, ys=[list(range(1, 10))], x_date_format="%b", show=False
+    )
+    labels = _xlabels(fig, ax)
+    assert labels[0] == "Jan" and labels[-1] == "Sep", labels
+    plt.close(fig)
+
+
+def test_month_initial_labels_with_full_first_label():
+    c = make_chart()
+    fig, ax = c.bar(x=MONTH_STARTS, ys=[list(range(1, 10))], x_date_format="%b|%J", show=False)
+    labels = _xlabels(fig, ax)
+    assert labels == ["Jan", *"FMAMJJAS"], labels  # narrow initials label every month
+    plt.close(fig)
